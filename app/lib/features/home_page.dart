@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../main.dart';
 import '../models.dart';
 import '../services/audio_service.dart';
 import '../services/binding_service.dart';
 import '../services/database_service.dart';
+import '../services/desktop_service.dart';
 import '../services/keyboard_service.dart';
 import '../services/library_service.dart';
 import '../services/profile_io.dart';
+import '../services/tray_service.dart';
 import '../state.dart';
 import 'assign_dialog.dart';
 import 'diagnostics_panel.dart';
@@ -23,9 +28,10 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, WindowListener {
   bool _booted = false;
   String? _bootError;
+  StreamSubscription<int>? _trayClicks;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -38,6 +44,8 @@ class _HomePageState extends ConsumerState<HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    windowManager.addListener(this);
+    _trayClicks = TrayService.instance.clicks.listen(_onTrayClick);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await ref.read(boardProvider.notifier).boot();
@@ -364,8 +372,52 @@ class _HomePageState extends ConsumerState<HomePage>
     );
   }
 
+  /// The close button hides to the tray rather than quitting, when there is a
+  /// tray to hide into. Quit lives in the tray menu.
+  @override
+  void onWindowClose() async {
+    final board = ref.read(boardProvider);
+    if (board.trayActive && board.closeToTray) {
+      await DesktopService.instance.hideToTray();
+    } else {
+      await _quit();
+    }
+  }
+
+  Future<void> _quit() async {
+    await DesktopService.instance.releaseSingleInstance();
+    TrayService.instance.stop();
+    await windowManager.setPreventClose(false);
+    await windowManager.destroy();
+  }
+
+  void _onTrayClick(int id) async {
+    final notifier = ref.read(boardProvider.notifier);
+    final board = ref.read(boardProvider);
+
+    if (id >= TrayAction.profileIdBase) {
+      await notifier.switchProfile(id - TrayAction.profileIdBase);
+      return;
+    }
+    switch (id) {
+      case TrayAction.activate:
+      case TrayAction.open:
+        await DesktopService.instance.restoreFromTray();
+      case TrayAction.keyboardToggle:
+        await notifier.setKeyboardEnabled(!board.keyboardEnabled);
+      case TrayAction.globalToggle:
+        await notifier.setGlobalMode(!board.globalMode);
+      case TrayAction.stopAll:
+        await notifier.stopAll();
+      case TrayAction.quit:
+        await _quit();
+    }
+  }
+
   @override
   void dispose() {
+    _trayClicks?.cancel();
+    windowManager.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -433,6 +485,7 @@ class _HomePageState extends ConsumerState<HomePage>
             onDiagnostics: () => showDiagnostics(context),
             onGlobalModeChanged: (v) =>
                 ref.read(boardProvider.notifier).setGlobalMode(v),
+            onSettings: () => showSettings(context),
           ),
           if (board.keyboardError != null)
             _Banner(
@@ -583,6 +636,7 @@ class _Toolbar extends StatelessWidget {
     required this.onStopAll,
     required this.onDiagnostics,
     required this.onGlobalModeChanged,
+    required this.onSettings,
   });
 
   final BoardState board;
@@ -592,6 +646,7 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onStopAll;
   final VoidCallback onDiagnostics;
   final ValueChanged<bool> onGlobalModeChanged;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -663,6 +718,12 @@ class _Toolbar extends StatelessWidget {
           onPressed: onDiagnostics,
           iconSize: 18,
           icon: const Icon(Icons.speed_outlined, color: kMuted),
+        ),
+        IconButton(
+          tooltip: 'Settings',
+          onPressed: onSettings,
+          iconSize: 18,
+          icon: const Icon(Icons.tune, color: kMuted),
         ),
       ]),
     );

@@ -4,16 +4,106 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../main.dart';
 import '../services/audio_service.dart';
 import '../services/binding_service.dart';
 import '../services/keyboard_service.dart';
 
+import '../state.dart';
+
 Future<void> showDiagnostics(BuildContext context) => showDialog(
       context: context,
       builder: (_) => const _DiagnosticsDialog(),
     );
+
+/// Settings that are not part of the moment-to-moment board.
+Future<void> showSettings(BuildContext context) => showDialog(
+      context: context,
+      builder: (_) => const _SettingsDialog(),
+    );
+
+class _SettingsDialog extends ConsumerWidget {
+  const _SettingsDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final board = ref.watch(boardProvider);
+    final notifier = ref.read(boardProvider.notifier);
+
+    Widget row(String title, String subtitle, bool value,
+            ValueChanged<bool>? onChanged) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: onChanged == null ? kMuted : kInk)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: const TextStyle(fontSize: 11, color: kMuted)),
+                ],
+              ),
+            ),
+            Switch(value: value, onChanged: onChanged),
+          ]),
+        );
+
+    return AlertDialog(
+      backgroundColor: kPanel,
+      shape: const RoundedRectangleBorder(
+          side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+      title: const Text('Settings', style: TextStyle(fontSize: 16)),
+      content: SizedBox(
+        width: 460,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          row(
+            'Close to tray',
+            board.trayActive
+                ? 'The close button hides Ruckus instead of quitting'
+                : 'No system tray on this desktop',
+            board.closeToTray && board.trayActive,
+            board.trayActive ? notifier.setCloseToTray : null,
+          ),
+          const Divider(color: kRule),
+          row(
+            'Start with the system',
+            'Launches hidden in the tray when you log in',
+            board.launchAtStartup,
+            notifier.setLaunchAtStartup,
+          ),
+          const Divider(color: kRule),
+          row(
+            'Fire from any application',
+            'Off means keys only work while Ruckus is focused',
+            board.globalMode,
+            board.captureLive ? notifier.setGlobalMode : null,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              board.trayActive
+                  ? 'Tray icon active — right-click it for profiles and Quit.'
+                  : 'Tray unavailable, so the close button quits.',
+              style: const TextStyle(fontSize: 11, color: kMuted),
+            ),
+          ),
+        ]),
+      ),
+      actions: [
+        FilledButton(
+            onPressed: () => Navigator.pop(context), child: const Text('Done')),
+      ],
+    );
+  }
+}
 
 class _DiagnosticsDialog extends StatefulWidget {
   const _DiagnosticsDialog();

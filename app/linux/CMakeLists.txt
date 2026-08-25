@@ -59,10 +59,14 @@ enable_language(C)
 pkg_check_modules(SBX11 REQUIRED IMPORTED_TARGET x11 xtst)
 
 add_library(ruckus_keys SHARED
-  "native/sb_keymap.c" "native/sb_x11.c" "native/sb_evdev.c" "native/sb_keyboard.c")
+  "native/sb_keymap.c"
+  "native/sb_x11.c"
+  "native/sb_evdev.c"
+  "native/sb_keyboard.c"
+  "native/sb_tray.c")
 target_compile_options(ruckus_keys PRIVATE -Wall -Wextra -O2 -fPIC)
 target_include_directories(ruckus_keys PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
-target_link_libraries(ruckus_keys PRIVATE PkgConfig::SBX11 pthread)
+target_link_libraries(ruckus_keys PRIVATE PkgConfig::SBX11 PkgConfig::GTK pthread)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")

@@ -8,13 +8,17 @@ import 'services/audio_service.dart';
 import 'services/binding_service.dart';
 import 'services/database_service.dart';
 import 'services/keyboard_service.dart';
+import 'services/desktop_service.dart';
 import 'services/library_service.dart';
+import 'services/tray_service.dart';
 
 final _db = DatabaseService.instance;
 final _audio = AudioService.instance;
 final _bindings = BindingService.instance;
 final _keyboard = GlobalKeyboard.instance;
 final _library = LibraryService.instance;
+final _tray = TrayService.instance;
+final _desktop = DesktopService.instance;
 
 /// Everything the board needs to render, loaded as one consistent snapshot.
 class BoardState {
@@ -28,6 +32,9 @@ class BoardState {
   final int backend;
   final String? keyboardError;
   final String? audioError;
+  final bool trayActive;
+  final bool closeToTray;
+  final bool launchAtStartup;
 
   const BoardState({
     this.profiles = const [],
@@ -40,6 +47,9 @@ class BoardState {
     this.backend = SbBackend.none,
     this.keyboardError,
     this.audioError,
+    this.trayActive = false,
+    this.closeToTray = true,
+    this.launchAtStartup = false,
   });
 
   bool get captureLive => backend != SbBackend.none && keyboardError == null;
@@ -55,6 +65,9 @@ class BoardState {
     int? backend,
     String? keyboardError,
     String? audioError,
+    bool? trayActive,
+    bool? closeToTray,
+    bool? launchAtStartup,
   }) =>
       BoardState(
         profiles: profiles ?? this.profiles,
@@ -67,6 +80,9 @@ class BoardState {
         backend: backend ?? this.backend,
         keyboardError: keyboardError ?? this.keyboardError,
         audioError: audioError ?? this.audioError,
+        trayActive: trayActive ?? this.trayActive,
+        closeToTray: closeToTray ?? this.closeToTray,
+        launchAtStartup: launchAtStartup ?? this.launchAtStartup,
       );
 }
 
@@ -110,7 +126,60 @@ class BoardNotifier extends Notifier<BoardState> {
       audioError: audioError,
     );
 
+    // Tray is best-effort: a desktop without a tray host is not an error.
+    final trayOk = _tray.start();
+    final closeToTray = await _db.getBool('close_to_tray', true);
+    final startup = await _desktop.isLaunchAtStartupEnabled();
+    if (trayOk) await _desktop.setCloseToTray(closeToTray);
+
+    state = state.copyWith(
+      trayActive: trayOk,
+      closeToTray: closeToTray,
+      launchAtStartup: startup,
+    );
+
     await refresh();
+    syncTray();
+  }
+
+  /// Pushes current state into the tray menu. Cheap; call after any change.
+  void syncTray() {
+    if (!state.trayActive) return;
+    final items = <TrayMenuItem>[
+      const TrayMenuItem(TrayAction.open, 'Open Ruckus'),
+      const TrayMenuItem.separator(),
+      for (var i = 0; i < state.profiles.length; i++)
+        TrayMenuItem(
+          TrayAction.profileIdBase + state.profiles[i].id,
+          '  ${state.profiles[i].name}',
+          checked: state.profiles[i].id == state.active?.id,
+        ),
+      const TrayMenuItem.separator(),
+      TrayMenuItem(TrayAction.keyboardToggle, 'Keys enabled',
+          checked: state.keyboardEnabled, enabled: state.captureLive),
+      TrayMenuItem(TrayAction.globalToggle, 'Fire from any app',
+          checked: state.globalMode, enabled: state.captureLive),
+      const TrayMenuItem.separator(),
+      const TrayMenuItem(TrayAction.stopAll, 'Stop all sounds'),
+      const TrayMenuItem(TrayAction.quit, 'Quit'),
+    ];
+    _tray.setMenu(items);
+    _tray.setTooltip(
+      'Ruckus — ${state.active?.name ?? "no profile"} · '
+      '${state.pads.length} key${state.pads.length == 1 ? "" : "s"}'
+      '${state.keyboardEnabled ? "" : " (keys off)"}',
+    );
+  }
+
+  Future<void> setCloseToTray(bool on) async {
+    state = state.copyWith(closeToTray: on);
+    await _desktop.setCloseToTray(on && state.trayActive);
+    await _db.setSetting('close_to_tray', on.toString());
+  }
+
+  Future<void> setLaunchAtStartup(bool on) async {
+    await _desktop.setLaunchAtStartup(on);
+    state = state.copyWith(launchAtStartup: on);
   }
 
   /// Reloads profiles, sounds and pads, then rebuilds the hot-path map.
@@ -134,6 +203,7 @@ class BoardNotifier extends Notifier<BoardState> {
       sounds: sounds,
       pads: pads,
     );
+    syncTray();
   }
 
   Future<void> setMasterVolume(double v) async {
@@ -145,12 +215,14 @@ class BoardNotifier extends Notifier<BoardState> {
   Future<void> setKeyboardEnabled(bool on) async {
     _bindings.enabled = on;
     state = state.copyWith(keyboardEnabled: on);
+    syncTray();
     await _db.setSetting('keyboard_enabled', on.toString());
   }
 
   Future<void> setGlobalMode(bool on) async {
     _bindings.globalMode = on;
     state = state.copyWith(globalMode: on);
+    syncTray();
     await _db.setSetting('global_mode', on.toString());
   }
 

@@ -201,7 +201,9 @@ class GlobalKeyboard {
   /// Monotonic microseconds on the same clock the native side stamps with.
   int nowUs() => _lib == null ? 0 : _nowUs();
 
-  String? _resolveLibrary() {
+  String? _resolveLibrary() => libraryPath();
+
+  static String? _resolveLibraryImpl() {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     for (final candidate in [
       '$exeDir/lib/libruckus_keys.so',
@@ -265,3 +267,6 @@ class GlobalKeyboard {
     _callable = null;
   }
 }
+
+/// Absolute path to the bundled native library, shared by every FFI service.
+String? libraryPath() => GlobalKeyboard._resolveLibraryImpl();

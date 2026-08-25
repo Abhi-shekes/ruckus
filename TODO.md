@@ -97,10 +97,10 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [x] Warn when binding a bare letter/digit, or Esc/Enter/Tab
 - [x] Verified: minimise → focus another window → press a bound key → sound plays
 - [~] ~~Linux first-run permission wizard~~ — **not needed**, XRecord requires no permissions
-- [ ] **System tray** — Open · Profile ▸ · Keyboard on/off · Stop all · Quit
-      *(blocked: `sudo apt install libayatana-appindicator3-dev`)*
-- [ ] Close-to-tray, restore on click, single-instance guard
-- [ ] `launch_at_startup` toggle
+- [x] **System tray** — Open · Profiles ▸ · Keys on/off · Global on/off · Stop all · Quit
+      *(StatusNotifierItem over D-Bus — no appindicator dependency, no sudo)*
+- [x] Close-to-tray, restore on icon click, single-instance guard via a file lock
+- [x] `launch_at_startup` toggle — freedesktop autostart entry, starts hidden
 - [x] APP ONLY / GLOBAL dispatch toggle, persisted, driven by window focus
 - [x] Warn on 17 common system shortcuts by name, as well as bare keys
 
