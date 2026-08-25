@@ -155,7 +155,7 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [x] README: features, install, privacy statement, architecture, known gaps
 - [x] Troubleshooting doc — 12 symptoms with checks and fixes
 - [x] Test matrix — Ubuntu X11: 18/18 automated + manual pass
-- [ ] Version `1.0.0`, tag, GitHub Release
+- [x] Version `1.0.0`, tagged and released
 
 ---
 

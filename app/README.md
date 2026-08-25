@@ -24,8 +24,9 @@ Verify everything below the UI at any time:
 ./run.sh --smoketest ../spike/assets/sounds
 ```
 
-18 checks covering the database, import, dedupe, preload, conflict handling and
-each playback mode.
+23 checks covering the database, import, dedupe, preload, conflict handling,
+profile round-tripping and each playback mode. Append `--stress` for a
+60-second sustained-load run.
 
 ---
 
@@ -77,13 +78,9 @@ useful when you're about to type a lot.
 network code at all. Bindings record key *identities*; unmatched keys are
 discarded in native code before they reach Dart. See `../PLAN.md` §5.
 
-**No system tray yet.** `tray_manager` needs a package that isn't installed:
-
-```bash
-sudo apt install libayatana-appindicator3-dev
-```
-
-Until then, minimise the window — capture keeps working regardless.
+**The tray is implemented directly over D-Bus** (StatusNotifierItem), so it
+needs no appindicator package. Right-click the icon for profiles, key toggles,
+Stop all and Quit. Closing the window hides to the tray; Quit is in the menu.
 
 ---
 

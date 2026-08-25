@@ -14,8 +14,9 @@ all.
 
 ## Status
 
-The MVP works. Sounds import, keys bind, and pressing them fires audio globally
-while the window is minimised or another application has focus.
+**v1.0.0 — feature complete for its scope.** Sounds import, keys bind, and
+pressing them fires audio globally while the window is minimised or another
+application has focus.
 
 | | |
 | --- | --- |
@@ -24,6 +25,8 @@ while the window is minimised or another application has focus.
 | Audio | SoLoud, preloaded into memory, unlimited overlapping voices |
 | Storage | SQLite, content-addressed audio files |
 | Measured key→app latency | **0.36 ms** bridge + 5.80 ms device buffer |
+| Tests | 23 automated checks, plus a 60 s sustained-load run |
+| Packaging | `.deb` and AppImage, both self-contained |
 
 Wayland and Windows are deliberately out of scope. See [Scope](#scope).
 
@@ -51,18 +54,31 @@ Verify the engine without touching the UI:
 ./run.sh --smoketest ../spike/assets/sounds
 ```
 
-18 checks across the database, import, dedupe, preload, conflict handling and
-every playback mode.
+23 checks across the database, import, dedupe, preload, conflict handling,
+profile round-tripping and every playback mode. Add `--stress` for a 60-second
+sustained-load run that watches for voice leaks and memory growth.
+
+Prefer a package?
+
+```bash
+./scripts/package.sh all      # → dist/*.deb and dist/*.AppImage
+```
 
 ---
 
 ## Using it
 
-1. **Add sounds** — MP3, WAV, OGG or FLAC.
-2. **Assign a key** — hover a sound, click the keyboard icon, press the key or
-   combination you want.
+1. **Add sounds** — MP3, WAV, OGG or FLAC. Drag files in from the desktop, or
+   use Add sounds.
+2. **Assign a key** — hover a sound and click the keyboard icon, then press the
+   key you want. Or switch to the keyboard view, and click a free key or drag a
+   sound onto it.
 3. **Pick a mode.**
 4. **Press the key** from any application.
+
+Two views of the board: **pads** for what is bound, and the **keyboard map** for
+the whole layout with bound keys picked out. Star a sound to float it to the top
+of the library, and sort by name, recency, duration or format.
 
 ### Playback modes
 
@@ -77,7 +93,9 @@ every playback mode.
 ### Profiles
 
 Each profile carries its own bindings. Switching swaps them instantly, so one
-set for gaming and another for calls is a dropdown away.
+set for gaming and another for calls is a dropdown away. Profiles export to a
+`.ruckus` file keyed by HID code and content hash — with the audio embedded for
+a self-contained file, or without it to relink against the target library.
 
 ---
 
@@ -88,7 +106,8 @@ swallow them — grabbing the keyboard outright would stop you typing at all. Bi
 `A` and pressing `A` still types an `A` wherever you are focused. The assign
 dialog warns when you pick a bare letter or digit; **modifier combinations or
 F-keys are what you want** for anything you press while typing. The `GLOBAL
-KEYS` switch turns capture off without quitting.
+KEYS` switch turns capture off without quitting, and the assign dialog names
+the system shortcut you are about to shadow — Ctrl+C is reported as Copy.
 
 **Your keystrokes go nowhere.** Ruckus reads every key on the machine, which
 obliges it to: no keystroke is written to a log, file, database or crash report;
@@ -154,15 +173,21 @@ app/                    the application
 ├── lib/
 │   ├── models.dart         Sound, Profile, KeyBinding, PlaybackMode
 │   ├── state.dart          Riverpod — UI state only
-│   ├── smoketest.dart      the 18-check harness
+│   ├── smoketest.dart      the automated harness
 │   ├── services/           database · audio · keyboard · bindings · library
-│   └── features/           home · pad grid · library · assign dialog
+│   │                       · profile I/O · tray · desktop integration
+│   └── features/           home · pads · keyboard map · library
+│                           · assign · diagnostics & settings
 └── linux/
-    ├── native/             XRecord + evdev backends (C) → libruckus_keys.so
+    ├── native/             XRecord + evdev keyboard, StatusNotifier tray,
+    │                       XKB layout labels (C) → libruckus_keys.so
     └── prebuilt/           compatibility shims for older Ubuntu
 
+scripts/package.sh      builds the .deb and the AppImage
+scripts/make-icon.py    generates the icon, no image library needed
 spike/                  Phase 0 technical spike, kept for the record
 docs/spike-results.md   what the spike proved, and what it changed
+docs/troubleshooting.md symptoms, checks, fixes
 PLAN.md                 architecture decisions and phases
 TODO.md                 what is done and what is not
 ```
@@ -187,17 +212,22 @@ than a rewrite — it simply has not been exercised. The Windows path
 
 ## Known gaps
 
-- **No system tray.** Needs `sudo apt install libayatana-appindicator3-dev`.
-  Minimising works fine meanwhile; capture is unaffected.
-- **No launch-at-startup toggle.**
-- **US-QWERTY key labels.** Other layouts will show the wrong glyph for the same
-  physical key. `libxkbcommon` fixes this.
-- **No profile import/export**, no drag-and-drop, no visual keyboard map.
-- **Ubuntu 20.04 needs two shims.** `flutter_soloud` ships a `libFLAC.so.14`
-  built against glibc 2.34 while 20.04 has 2.31; a rebuild at glibc 2.29 is
-  checked into `app/linux/prebuilt/glibc231/`. And `sqflite_common_ffi` opens the
-  unversioned `libsqlite3.so`, which only exists with `libsqlite3-dev` installed;
-  `run.sh` symlinks it from the system copy. Neither is needed on 22.04+.
+- **Wayland and Windows are not supported.** Deliberate; see Scope above.
+- **The tray needs a StatusNotifier host.** Ruckus registers one directly over
+  D-Bus rather than depending on libayatana-appindicator, so no extra package is
+  required — but a desktop with no tray host at all shows no icon, and the close
+  button quits instead of hiding. Settings reports which it found.
+- **The keyboard map shows unmodified bindings only.** A flat keyboard cannot
+  represent `Ctrl+Shift+A`; combinations are counted in the header and edited
+  from the pad view.
+- **Ubuntu 20.04 needs two shims**, both handled automatically by `run.sh` and
+  baked into the packages. `flutter_soloud` ships a `libFLAC.so.14` built
+  against glibc 2.34 while 20.04 has 2.31, so a rebuild at glibc 2.29 is checked
+  into `app/linux/prebuilt/glibc231/`; and `sqflite_common_ffi` opens the
+  unversioned `libsqlite3.so`, which only exists with `libsqlite3-dev`
+  installed. Neither is needed on 22.04+.
+- **No audio editing** — no trim, fade or normalise. Sounds play as imported.
+- **No sound groups**, random-from-group, or MIDI input.
 
 ---
 
