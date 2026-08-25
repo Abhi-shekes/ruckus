@@ -149,8 +149,8 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 ## Phase 6 — Release  (~1 week)
 
 - [~] ~~Windows installer~~ — out of scope
-- [ ] `flutter build linux --release` + `.deb` package
-- [ ] AppImage build
+- [x] `flutter build linux --release` + `.deb` (15 MB, self-contained, verified installable)
+- [x] AppImage (21 MB) — runs standalone, passes the full smoke suite
 - [ ] GitHub Actions build on the free Ubuntu runner
 - [x] README: features, install, privacy statement, architecture, known gaps
 - [ ] Troubleshooting doc: no audio device, glibc shims, keys not firing

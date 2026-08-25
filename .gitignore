@@ -22,3 +22,6 @@ spike/linux/prebuilt/glibc231/libsqlite3.so
 # OS
 .DS_Store
 *.swp
+
+# Build artefacts
+dist/
