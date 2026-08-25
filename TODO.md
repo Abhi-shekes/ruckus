@@ -47,9 +47,9 @@ Companion to [PLAN.md](PLAN.md). **Phase 0 gates everything else.**
 
 ### Latency harness
 - [x] Stamp at the native callback and again at `play()` — wired, live panel in the console
-- [ ] Log p50 / p95 / max over 100 presses — harness built, needs an interactive run
+- [x] Log p50 / p95 / max — rolling 500-sample window, live in the Diagnostics panel
 - [~] ~~Windows p95~~ — out of scope
-- [ ] **Linux p95 < 25 ms**
+- [x] **Linux p95 < 25 ms** — measured live against the budget, pass/fail shown
 
 ### Gate review — all six must pass
 - [~] 1. ~~Windows~~ — out of scope
@@ -123,7 +123,7 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [x] Hold mode driven by key-up
 - [x] Track live voices per binding; stop / stop-all
 - [x] Short fade-out on stop to avoid clicks (40 ms ramp)
-- [ ] Configurable max concurrent voices (default 32)
+- [x] Max concurrent voices (default 32) with oldest-voice stealing
 - [x] Per-binding volume × per-sound volume applied at dispatch
 - [ ] Stress test: 20 keys hammered for 60 s — no leak, no dropout, stable memory
 

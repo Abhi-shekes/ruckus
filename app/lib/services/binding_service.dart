@@ -13,6 +13,36 @@ import '../models.dart';
 import 'audio_service.dart';
 import 'keyboard_service.dart';
 
+/// Rolling keypress-to-playback latency, so the 25 ms budget is a measured
+/// fact rather than an assumption (PLAN D6).
+class LatencyStats {
+  static const _capacity = 500;
+  final _samples = <int>[];
+
+  void add(int micros) {
+    _samples.add(micros);
+    if (_samples.length > _capacity) _samples.removeAt(0);
+  }
+
+  void clear() => _samples.clear();
+  int get count => _samples.length;
+
+  double _pct(double p) {
+    if (_samples.isEmpty) return 0;
+    final sorted = List.of(_samples)..sort();
+    return sorted[((sorted.length - 1) * p).round()] / 1000.0;
+  }
+
+  /// Milliseconds from the native callback to handing the voice to the mixer.
+  double get p50 => _pct(0.50);
+  double get p95 => _pct(0.95);
+  double get max => _pct(1.0);
+
+  double get mean => _samples.isEmpty
+      ? 0
+      : _samples.reduce((a, b) => a + b) / _samples.length / 1000.0;
+}
+
 /// What the UI needs to know after a dispatch, delivered off the hot path.
 class PadActivity {
   final int bindingId;
@@ -47,6 +77,19 @@ class BindingService {
   /// While a capture dialog is open, keys must not trigger sounds.
   bool captureMode = false;
 
+  /// When false, only keys arriving while the app is focused fire. The capture
+  /// backend keeps running either way; this just gates dispatch.
+  bool globalMode = true;
+
+  /// Set by the window-focus observer so [globalMode] can be honoured.
+  bool appFocused = true;
+
+  /// Hard ceiling on simultaneous voices. Past this, the oldest is stolen —
+  /// the same voice-stealing a hardware sampler does.
+  int maxVoices = 32;
+
+  final latency = LatencyStats();
+
   bool get isListening => _sub != null;
   int get bindingCount => _byKey.length;
 
@@ -75,6 +118,7 @@ class BindingService {
 
   void _onKey(GlobalKeyEvent ev) {
     if (!enabled || captureMode) return;
+    if (!globalMode && !appFocused) return;
     if (ev.kind == KeyKind.repeat) return; // auto-repeat is not a new press
 
     final binding = _byKey[ev.bindingKey];
@@ -82,6 +126,9 @@ class BindingService {
 
     if (ev.kind == KeyKind.down) {
       _onDown(binding);
+      // Measured from the moment native code saw the key to the moment the
+      // voice was handed over — everything this app controls.
+      latency.add(_keyboard.nowUs() - ev.nativeUs);
     } else if (binding.mode == PlaybackMode.hold) {
       _stopBinding(binding.id);
     }
@@ -123,7 +170,32 @@ class BindingService {
     }
   }
 
+  /// Total voices this service believes are alive.
+  int get liveVoiceCount =>
+      _live.values.fold(0, (sum, list) => sum + list.length);
+
+  /// Frees the oldest voice when the ceiling is reached, so a stuck loop or a
+  /// very fast roll can never exhaust the mixer.
+  void _enforceVoiceCap() {
+    var over = liveVoiceCount - maxVoices;
+    if (over < 0) return;
+    for (final id in List.of(_live.keys)) {
+      final handles = _live[id];
+      if (handles == null) continue;
+      while (over >= 0 && handles.isNotEmpty) {
+        _audio.stop(handles.removeAt(0));
+        over--;
+      }
+      if (handles.isEmpty) {
+        _live.remove(id);
+        _activity.add(PadActivity(id, false));
+      }
+      if (over < 0) break;
+    }
+  }
+
   void _start(KeyBinding b, {required double volume, bool looping = false}) {
+    _enforceVoiceCap();
     // Not awaited: awaiting would add an event-loop turn to the hot path.
     _audio.play(b.soundId, volume: volume, looping: looping).then((h) {
       if (h == null) return;

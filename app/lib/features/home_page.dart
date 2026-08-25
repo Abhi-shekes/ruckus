@@ -10,6 +10,7 @@ import '../services/keyboard_service.dart';
 import '../services/library_service.dart';
 import '../state.dart';
 import 'assign_dialog.dart';
+import 'diagnostics_panel.dart';
 import 'pad_grid.dart';
 import 'sound_library.dart';
 
@@ -259,6 +260,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             onKeyboardToggle: (v) =>
                 ref.read(boardProvider.notifier).setKeyboardEnabled(v),
             onStopAll: () => ref.read(boardProvider.notifier).stopAll(),
+            onDiagnostics: () => showDiagnostics(context),
           ),
           if (board.keyboardError != null)
             _Banner(
@@ -389,6 +391,7 @@ class _Toolbar extends StatelessWidget {
     required this.onMasterVolume,
     required this.onKeyboardToggle,
     required this.onStopAll,
+    required this.onDiagnostics,
   });
 
   final BoardState board;
@@ -396,6 +399,7 @@ class _Toolbar extends StatelessWidget {
   final ValueChanged<double> onMasterVolume;
   final ValueChanged<bool> onKeyboardToggle;
   final VoidCallback onStopAll;
+  final VoidCallback onDiagnostics;
 
   @override
   Widget build(BuildContext context) {
@@ -454,6 +458,13 @@ class _Toolbar extends StatelessWidget {
         Switch(
           value: board.keyboardEnabled,
           onChanged: board.captureLive ? onKeyboardToggle : null,
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: 'Diagnostics',
+          onPressed: onDiagnostics,
+          iconSize: 18,
+          icon: const Icon(Icons.speed_outlined, color: kMuted),
         ),
       ]),
     );
