@@ -52,7 +52,9 @@ Future<void> runSmokeTest(List<String> args) async {
       audioOk ? 'buffer ${audio.bufferLatencyMs.toStringAsFixed(2)} ms' : '');
 
   // --------------------------------------------------------------- import
-  final dir = Directory(args.isNotEmpty ? args.first : '../spike/assets/sounds');
+  final positional = args.where((a) => !a.startsWith('--')).toList();
+  final dir = Directory(
+      positional.isNotEmpty ? positional.first : '../spike/assets/sounds');
   if (!dir.existsSync()) {
     _check('test sounds available', false, 'no directory ${dir.path}');
     _report();
@@ -196,6 +198,46 @@ Future<void> runSmokeTest(List<String> args) async {
   final peak = audio.voiceCount;
   await bindings.stopAll();
   _check('ten rapid presses overlap', peak >= 8, '$peak concurrent voices');
+
+  // ------------------------------------------------------------- stress
+  // Hammer every binding for a sustained period and watch for voice leaks,
+  // runaway memory, or the mixer wedging.
+  if (args.contains('--stress')) {
+    stdout.writeln('\n  stress: 20 keys/s for 60 s…');
+    final rssStart = ProcessInfo.currentRss;
+    final sw = Stopwatch()..start();
+    var fired = 0;
+    var peak = 0;
+
+    while (sw.elapsed.inSeconds < 60) {
+      for (final b in live) {
+        bindings.trigger(b);
+        fired++;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final v = audio.voiceCount;
+      if (v > peak) peak = v;
+      if (sw.elapsed.inSeconds % 15 == 0 && sw.elapsedMilliseconds % 1000 < 60) {
+        stdout.writeln('    ${sw.elapsed.inSeconds}s  fired=$fired  '
+            'voices=$v  rss=${ProcessInfo.currentRss ~/ 1048576}MB');
+      }
+    }
+    await bindings.stopAll();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    final rssEnd = ProcessInfo.currentRss;
+    final growthMb = (rssEnd - rssStart) / 1048576;
+
+    _check('stress: voice ceiling held', peak <= bindings.maxVoices,
+        'peak $peak, cap ${bindings.maxVoices}, $fired triggers');
+    _check('stress: all voices released', audio.voiceCount == 0,
+        '${audio.voiceCount} left playing');
+    _check('stress: memory stable', growthMb < 64,
+        '${growthMb.toStringAsFixed(1)} MB growth over 60 s');
+    _check('stress: latency held under budget',
+        bindings.latency.count == 0 || bindings.latency.p95 < 25.0,
+        'p95 ${bindings.latency.p95.toStringAsFixed(2)} ms');
+  }
 
   // ------------------------------------------------------ profile round-trip
   final profile = (await db.profiles()).firstWhere((p) => p.id == profileId);

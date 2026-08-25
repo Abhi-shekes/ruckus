@@ -14,7 +14,7 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (args.contains('--smoketest')) {
-    runSmokeTest(args.where((a) => !a.startsWith('--')).toList());
+    runSmokeTest(args);
     return;
   }
 

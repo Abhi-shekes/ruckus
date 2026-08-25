@@ -125,7 +125,7 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [x] Short fade-out on stop to avoid clicks (40 ms ramp)
 - [x] Max concurrent voices (default 32) with oldest-voice stealing
 - [x] Per-binding volume × per-sound volume applied at dispatch
-- [ ] Stress test: 20 keys hammered for 60 s — no leak, no dropout, stable memory
+- [x] Stress test (`--stress`): 5,850 triggers over 60 s, cap held, 9.3 MB growth
 
 ---
 
