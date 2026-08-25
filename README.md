@@ -201,6 +201,14 @@ than a rewrite — it simply has not been exercised. The Windows path
 
 ---
 
+## If something is wrong
+
+[docs/troubleshooting.md](docs/troubleshooting.md) covers the usual suspects:
+keys not firing, silent playback, crackling audio, the glibc shims, a missing
+tray icon, and how to tell whether the problem is Ruckus or the machine.
+
+---
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).

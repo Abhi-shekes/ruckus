@@ -151,9 +151,9 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [~] ~~Windows installer~~ — out of scope
 - [x] `flutter build linux --release` + `.deb` (15 MB, self-contained, verified installable)
 - [x] AppImage (21 MB) — runs standalone, passes the full smoke suite
-- [ ] GitHub Actions build on the free Ubuntu runner
+- [x] GitHub Actions: analyze, smoke test under Xvfb, package, attach to tagged releases
 - [x] README: features, install, privacy statement, architecture, known gaps
-- [ ] Troubleshooting doc: no audio device, glibc shims, keys not firing
+- [x] Troubleshooting doc — 12 symptoms with checks and fixes
 - [x] Test matrix — Ubuntu X11: 18/18 automated + manual pass
 - [ ] Version `1.0.0`, tag, GitHub Release
 
