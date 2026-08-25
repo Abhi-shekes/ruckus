@@ -8,6 +8,7 @@ import '../services/binding_service.dart';
 import '../services/database_service.dart';
 import '../services/keyboard_service.dart';
 import '../services/library_service.dart';
+import '../services/profile_io.dart';
 import '../state.dart';
 import 'assign_dialog.dart';
 import 'diagnostics_panel.dart';
@@ -211,6 +212,149 @@ class _HomePageState extends ConsumerState<HomePage> {
     await ref.read(boardProvider.notifier).switchProfile(id);
   }
 
+  Future<void> _renameProfile(Profile p) async {
+    final name = await _promptText('Rename profile', initial: p.name, action: 'Rename');
+    if (name == null || name.isEmpty) return;
+    await DatabaseService.instance.renameProfile(p.id, name);
+    await ref.read(boardProvider.notifier).refresh();
+  }
+
+  Future<void> _duplicateProfile(Profile p) async {
+    final name = await _promptText('Duplicate profile',
+        initial: '${p.name} copy', action: 'Duplicate');
+    if (name == null || name.isEmpty) return;
+    final id = await DatabaseService.instance.duplicateProfile(p.id, name);
+    await ref.read(boardProvider.notifier).switchProfile(id);
+    if (mounted) _toast('Duplicated to "$name"');
+  }
+
+  Future<void> _deleteProfile(Profile p) async {
+    if (ref.read(boardProvider).profiles.length <= 1) {
+      _toast('This is the only profile — create another first.');
+      return;
+    }
+    final ok = await _confirm('Delete profile',
+        'Delete "${p.name}" and all of its key bindings?\n\n'
+        'Your sounds stay in the library.', 'Delete', danger: true);
+    if (ok != true) return;
+    await DatabaseService.instance.deleteProfile(p.id);
+    await ref.read(boardProvider.notifier).refresh();
+  }
+
+  Future<void> _exportProfile(Profile p) async {
+    final embed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: const Text('Export profile', style: TextStyle(fontSize: 16)),
+        content: const SizedBox(
+          width: 400,
+          child: Text(
+            'Include the audio itself?\n\n'
+            'With audio, the file works on any machine but is much larger. '
+            'Without it, the file is tiny and relinks to sounds already in the '
+            'target library.',
+            style: TextStyle(fontSize: 12.5, color: kInkSoft),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Bindings only')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Include audio')),
+        ],
+      ),
+    );
+    if (embed == null) return;
+    try {
+      final path = await ProfileIO.instance.exportWithPicker(p, embedAudio: embed);
+      if (path != null && mounted) _toast('Exported to $path');
+    } catch (e) {
+      if (mounted) _toast('Export failed: $e');
+    }
+  }
+
+  Future<void> _importProfile() async {
+    try {
+      final report = await ProfileIO.instance.importWithPicker();
+      if (report == null) return;
+      await ref.read(boardProvider.notifier).refresh();
+      if (!mounted) return;
+      if (report.complete) {
+        _toast('Imported ${report.summary}');
+      } else {
+        await _confirm(
+          'Imported with gaps',
+          '${report.summary}\n\n'
+          'These sounds were not in the file and are not in your library, so '
+          'their keys were skipped:\n\n'
+          '${report.missingSounds.join(", ")}\n\n'
+          'Import them by hand, then re-import this profile to relink.',
+          'OK',
+        );
+      }
+    } catch (e) {
+      if (mounted) _toast('Import failed: $e');
+    }
+  }
+
+  Future<String?> _promptText(String title,
+      {String initial = '', String action = 'Save', String? hint}) {
+    final controller = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: Text(title, style: const TextStyle(fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: Text(action)),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirm(String title, String body, String action,
+      {bool danger = false}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: Text(title, style: const TextStyle(fontSize: 16)),
+        content: SizedBox(width: 420, child: Text(body)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: danger ? FilledButton.styleFrom(backgroundColor: kDanger) : null,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
@@ -251,6 +395,17 @@ class _HomePageState extends ConsumerState<HomePage> {
             onProfileChanged: (id) =>
                 ref.read(boardProvider.notifier).switchProfile(id),
             onNewProfile: _newProfile,
+            onProfileAction: (action) {
+              final p = ref.read(boardProvider).active;
+              if (p == null) return;
+              switch (action) {
+                case 'rename': _renameProfile(p);
+                case 'duplicate': _duplicateProfile(p);
+                case 'delete': _deleteProfile(p);
+                case 'export': _exportProfile(p);
+                case 'import': _importProfile();
+              }
+            },
           ),
           _Toolbar(
             board: board,
@@ -318,11 +473,13 @@ class _Header extends StatelessWidget {
     required this.board,
     required this.onProfileChanged,
     required this.onNewProfile,
+    required this.onProfileAction,
   });
 
   final BoardState board;
   final ValueChanged<int> onProfileChanged;
   final VoidCallback onNewProfile;
+  final ValueChanged<String> onProfileAction;
 
   @override
   Widget build(BuildContext context) {
@@ -378,6 +535,22 @@ class _Header extends StatelessWidget {
           tooltip: 'New profile',
           onPressed: onNewProfile,
           icon: const Icon(Icons.add, size: 18),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Profile actions',
+          iconSize: 18,
+          color: kPanel,
+          icon: const Icon(Icons.more_vert, color: kMuted),
+          onSelected: onProfileAction,
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'rename', height: 36, child: Text('Rename')),
+            PopupMenuItem(value: 'duplicate', height: 36, child: Text('Duplicate')),
+            PopupMenuDivider(),
+            PopupMenuItem(value: 'export', height: 36, child: Text('Export…')),
+            PopupMenuItem(value: 'import', height: 36, child: Text('Import…')),
+            PopupMenuDivider(),
+            PopupMenuItem(value: 'delete', height: 36, child: Text('Delete')),
+          ],
         ),
       ]),
     );

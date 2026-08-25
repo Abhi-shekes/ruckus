@@ -6,6 +6,7 @@
 // Uses a scratch profile so it never disturbs the user's own board, and
 // deletes it on the way out.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'models.dart';
@@ -14,6 +15,7 @@ import 'services/binding_service.dart';
 import 'services/database_service.dart';
 import 'services/keyboard_service.dart';
 import 'services/library_service.dart';
+import 'services/profile_io.dart';
 
 int _pass = 0, _fail = 0;
 
@@ -194,6 +196,63 @@ Future<void> runSmokeTest(List<String> args) async {
   final peak = audio.voiceCount;
   await bindings.stopAll();
   _check('ten rapid presses overlap', peak >= 8, '$peak concurrent voices');
+
+  // ------------------------------------------------------ profile round-trip
+  final profile = (await db.profiles()).firstWhere((p) => p.id == profileId);
+  final tmp = '${Directory.systemTemp.path}/ruckus-roundtrip.ruckus';
+
+  // Bindings-only export: relinks against sounds already in the library.
+  await File(tmp).writeAsString(
+      await ProfileIO.instance.buildDocument(profile, embedAudio: false));
+  final lean = await File(tmp).length();
+  final r1 = await ProfileIO.instance.importFile(tmp);
+  _check('profile round-trips (bindings only)',
+      r1.bindingsAdded == live.length && r1.complete,
+      '${r1.bindingsAdded}/${live.length} bindings, ${lean ~/ 1024} KB');
+
+  // Self-contained export: audio embedded and hash-verified on the way back in.
+  await File(tmp).writeAsString(
+      await ProfileIO.instance.buildDocument(profile, embedAudio: true));
+  final fat = await File(tmp).length();
+  _check('embedded export carries the audio', fat > lean * 4,
+      '${fat ~/ 1024} KB vs ${lean ~/ 1024} KB');
+
+  final doc = jsonDecode(await File(tmp).readAsString()) as Map;
+  _check('export is keyed by HID code and content hash',
+      (doc['bindings'] as List).every((b) =>
+          b['physical_key_id'] is int && (b['sound_hash'] as String).length == 64));
+
+  final r2 = await ProfileIO.instance.importFile(tmp);
+  _check('embedded profile imports cleanly', r2.complete && r2.bindingsAdded > 0,
+      r2.summary);
+
+  // A corrupted payload must be rejected, not silently written to disk.
+  final corrupt = Map<String, Object?>.from(doc);
+  final sounds0 = Map<String, Object?>.from(corrupt['sounds'] as Map);
+  final firstKey = sounds0.keys.first;
+  final entry = Map<String, Object?>.from(sounds0[firstKey] as Map);
+  entry['audio_base64'] = base64Encode(utf8.encode('not audio at all'));
+  sounds0[firstKey] = entry;
+  corrupt['sounds'] = sounds0;
+  // Give it a hash nothing in the library matches, so it must fall back to the
+  // (now corrupt) payload rather than relinking.
+  final orphan = '${'f' * 63}0';
+  corrupt['sounds'] = {orphan: entry};
+  corrupt['bindings'] = [
+    {'physical_key_id': 0x0007003A, 'modifiers': 0, 'sound_hash': orphan,
+     'playback_mode': 'once', 'volume': 1.0, 'enabled': true}
+  ];
+  await File(tmp).writeAsString(jsonEncode(corrupt));
+  final r3 = await ProfileIO.instance.importFile(tmp);
+  _check('corrupt audio is rejected on import',
+      r3.missingSounds.any((m) => m.contains('corrupt')) && r3.bindingsAdded == 0,
+      r3.missingSounds.join(', '));
+
+  // Tidy the profiles those imports created.
+  for (final p in await db.profiles()) {
+    if (p.name.startsWith(profileName)) await db.deleteProfile(p.id);
+  }
+  await File(tmp).delete();
 
   // ---------------------------------------------------------------- clean
   await db.deleteProfile(profileId);

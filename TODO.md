@@ -108,11 +108,11 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 
 ## Phase 3 — Profiles  (~1 week)
 
-- [x] Create / delete profile (last one protected); rename + duplicate in the DB layer, no UI yet
+- [x] Create / rename / duplicate / delete profile (last one protected), all with UI
 - [x] Profile switcher in the header; switching swaps the binding map instantly
 - [x] Persist and restore the active profile across restarts
-- [ ] Export `.soundboard` — JSON of bindings by HID code + sound hashes + optional embedded audio
-- [ ] Import with a missing-sound report and a relink flow
+- [x] Export `.ruckus` — JSON of bindings by HID code + sound hashes, audio optional
+- [x] Import with a missing-sound report, hash-verified audio, and relink by hash
 - [~] ~~Round-trip to Windows~~ — out of scope
 
 ---
