@@ -64,13 +64,38 @@ class _AssignDialogState extends State<_AssignDialog> {
   late PlaybackMode _mode;
   bool _listening = true;
 
-  /// Keys that would make the app unusable if bound, or that the desktop
-  /// almost certainly wants for itself.
+  /// Keys that would make the app itself hard to use if bound bare.
   static const _risky = {
     0x00070029, // Escape
     0x00070028, // Enter
     0x0007002B, // Tab
   };
+
+  /// Combinations nearly every application already claims. Binding these still
+  /// works — Linux cannot suppress them — but you will fire a sound every time
+  /// you copy, paste or undo, which is rarely what anyone wants.
+  static const _systemShortcuts = <int, String>{
+    (0x00070006 << 4) | SbMod.ctrl: 'Copy',
+    (0x00070019 << 4) | SbMod.ctrl: 'Paste',
+    (0x0007001B << 4) | SbMod.ctrl: 'Cut',
+    (0x0007001D << 4) | SbMod.ctrl: 'Undo',
+    (0x0007001C << 4) | SbMod.ctrl: 'Redo',
+    (0x00070016 << 4) | SbMod.ctrl: 'Save',
+    (0x00070004 << 4) | SbMod.ctrl: 'Select all',
+    (0x0007000A << 4) | SbMod.ctrl: 'Find',
+    (0x00070017 << 4) | SbMod.ctrl: 'New tab',
+    (0x0007001A << 4) | SbMod.ctrl: 'Close window',
+    (0x00070015 << 4) | SbMod.ctrl: 'Reload',
+    (0x00070013 << 4) | SbMod.ctrl: 'Print',
+    (0x0007002B << 4) | SbMod.alt: 'Switch window',
+    (0x0007002B << 4) | SbMod.ctrl: 'Switch tab',
+    (0x00070008 << 4) | SbMod.ctrl: 'Quit',
+    (0x00070014 << 4) | SbMod.ctrl: 'Quit',
+    (0x0007003D << 4) | SbMod.alt: 'Close window',
+  };
+
+  String? get _systemShortcutName =>
+      _hid == null ? null : _systemShortcuts[(_hid! << 4) | (_mods & 0xF)];
 
   @override
   void initState() {
@@ -179,6 +204,11 @@ class _AssignDialogState extends State<_AssignDialog> {
                   'On Linux a bound key still reaches whatever app is focused, '
                   'so this will also type. A modifier combination or an F-key '
                   'is usually safer.'),
+            if (_systemShortcutName != null)
+              _Warning(
+                  'Most applications use this for "$_systemShortcutName". It '
+                  'will keep doing that — Ruckus cannot take the key away — so '
+                  'you would fire this sound every time you use it.'),
 
             const SizedBox(height: 14),
             const Text('WHEN PRESSED',

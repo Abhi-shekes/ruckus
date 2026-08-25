@@ -22,13 +22,22 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
   bool _booted = false;
   String? _bootError;
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Drives "Application only" dispatch. Capture keeps running either way;
+    // this only decides whether an unfocused keypress is allowed to fire.
+    BindingService.instance.appFocused = state == AppLifecycleState.resumed;
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await ref.read(boardProvider.notifier).boot();
@@ -355,6 +364,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
@@ -416,6 +431,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ref.read(boardProvider.notifier).setKeyboardEnabled(v),
             onStopAll: () => ref.read(boardProvider.notifier).stopAll(),
             onDiagnostics: () => showDiagnostics(context),
+            onGlobalModeChanged: (v) =>
+                ref.read(boardProvider.notifier).setGlobalMode(v),
           ),
           if (board.keyboardError != null)
             _Banner(
@@ -565,6 +582,7 @@ class _Toolbar extends StatelessWidget {
     required this.onKeyboardToggle,
     required this.onStopAll,
     required this.onDiagnostics,
+    required this.onGlobalModeChanged,
   });
 
   final BoardState board;
@@ -573,6 +591,7 @@ class _Toolbar extends StatelessWidget {
   final ValueChanged<bool> onKeyboardToggle;
   final VoidCallback onStopAll;
   final VoidCallback onDiagnostics;
+  final ValueChanged<bool> onGlobalModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -621,7 +640,13 @@ class _Toolbar extends StatelessWidget {
                   fontFamily: 'monospace', fontSize: 11.5, color: kInkSoft)),
         ),
         const Spacer(),
-        const Text('GLOBAL KEYS',
+        _ModeToggle(
+          global: board.globalMode,
+          enabled: board.captureLive && board.keyboardEnabled,
+          onChanged: onGlobalModeChanged,
+        ),
+        const SizedBox(width: 18),
+        const Text('KEYS',
             style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
@@ -639,6 +664,56 @@ class _Toolbar extends StatelessWidget {
           iconSize: 18,
           icon: const Icon(Icons.speed_outlined, color: kMuted),
         ),
+      ]),
+    );
+  }
+}
+
+/// Where keys are allowed to fire from. Both options keep capture running;
+/// the difference is whether an unfocused keypress is dispatched.
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({
+    required this.global,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool global;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget seg(String label, bool isGlobal, String tip) {
+      final on = global == isGlobal;
+      return Tooltip(
+        message: tip,
+        child: InkWell(
+          onTap: enabled && !on ? () => onChanged(isGlobal) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            color: on ? kAccent.withValues(alpha: 0.18) : Colors.transparent,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.1,
+                fontWeight: on ? FontWeight.bold : FontWeight.normal,
+                color: !enabled ? kMuted : (on ? kAccent : kInkSoft),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: kRule)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('APP ONLY', false, 'Keys fire only while Ruckus is focused'),
+        Container(width: 1, height: 22, color: kRule),
+        seg('GLOBAL', true, 'Keys fire from any application'),
       ]),
     );
   }

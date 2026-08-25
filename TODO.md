@@ -101,8 +101,8 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
       *(blocked: `sudo apt install libayatana-appindicator3-dev`)*
 - [ ] Close-to-tray, restore on click, single-instance guard
 - [ ] `launch_at_startup` toggle
-- [ ] Setting: ○ Application Only / ● Global — currently global-only
-- [ ] Warn on common system shortcuts (Ctrl+C/V/Z, Alt+Tab) as well as bare keys
+- [x] APP ONLY / GLOBAL dispatch toggle, persisted, driven by window focus
+- [x] Warn on 17 common system shortcuts by name, as well as bare keys
 
 ---
 

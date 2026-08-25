@@ -24,6 +24,7 @@ class BoardState {
   final List<Pad> pads;
   final double masterVolume;
   final bool keyboardEnabled;
+  final bool globalMode;
   final int backend;
   final String? keyboardError;
   final String? audioError;
@@ -35,6 +36,7 @@ class BoardState {
     this.pads = const [],
     this.masterVolume = 0.8,
     this.keyboardEnabled = true,
+    this.globalMode = true,
     this.backend = SbBackend.none,
     this.keyboardError,
     this.audioError,
@@ -49,6 +51,7 @@ class BoardState {
     List<Pad>? pads,
     double? masterVolume,
     bool? keyboardEnabled,
+    bool? globalMode,
     int? backend,
     String? keyboardError,
     String? audioError,
@@ -60,6 +63,7 @@ class BoardState {
         pads: pads ?? this.pads,
         masterVolume: masterVolume ?? this.masterVolume,
         keyboardEnabled: keyboardEnabled ?? this.keyboardEnabled,
+        globalMode: globalMode ?? this.globalMode,
         backend: backend ?? this.backend,
         keyboardError: keyboardError ?? this.keyboardError,
         audioError: audioError ?? this.audioError,
@@ -82,6 +86,7 @@ class BoardNotifier extends Notifier<BoardState> {
 
     final master = await _db.getDouble('master_volume', 0.8);
     final kbOn = await _db.getBool('keyboard_enabled', true);
+    final global = await _db.getBool('global_mode', true);
     _audio.setMasterVolume(master);
 
     final sounds = await _db.sounds();
@@ -93,11 +98,13 @@ class BoardNotifier extends Notifier<BoardState> {
     if (err != SbError.ok) kbError = err.message;
     _bindings
       ..enabled = kbOn
+      ..globalMode = global
       ..attach();
 
     state = state.copyWith(
       masterVolume: master,
       keyboardEnabled: kbOn,
+      globalMode: global,
       backend: _keyboard.activeBackend,
       keyboardError: kbError,
       audioError: audioError,
@@ -139,6 +146,12 @@ class BoardNotifier extends Notifier<BoardState> {
     _bindings.enabled = on;
     state = state.copyWith(keyboardEnabled: on);
     await _db.setSetting('keyboard_enabled', on.toString());
+  }
+
+  Future<void> setGlobalMode(bool on) async {
+    _bindings.globalMode = on;
+    state = state.copyWith(globalMode: on);
+    await _db.setSetting('global_mode', on.toString());
   }
 
   Future<void> switchProfile(int id) async {
