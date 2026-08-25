@@ -1,0 +1,24 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Linux desktop build
+linux/flutter/ephemeral/
+
+# Generated compatibility symlink — run.sh recreates it from the system copy
+linux/prebuilt/glibc231/libsqlite3.so
+app/linux/prebuilt/glibc231/libsqlite3.so
+spike/linux/prebuilt/glibc231/libsqlite3.so
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+*.swp

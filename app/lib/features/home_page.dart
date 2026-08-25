@@ -1,0 +1,482 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../main.dart';
+import '../models.dart';
+import '../services/audio_service.dart';
+import '../services/binding_service.dart';
+import '../services/database_service.dart';
+import '../services/keyboard_service.dart';
+import '../services/library_service.dart';
+import '../state.dart';
+import 'assign_dialog.dart';
+import 'pad_grid.dart';
+import 'sound_library.dart';
+
+class HomePage extends ConsumerStatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  bool _booted = false;
+  String? _bootError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref.read(boardProvider.notifier).boot();
+      } catch (e) {
+        if (mounted) setState(() => _bootError = '$e');
+      }
+      if (mounted) setState(() => _booted = true);
+    });
+  }
+
+  // --------------------------------------------------------------- actions
+
+  Future<void> _import() async {
+    final result = await LibraryService.instance.importWithPicker();
+    if (result == null) return;
+    await ref.read(boardProvider.notifier).refresh();
+    if (!mounted) return;
+    _toast(result.summary);
+  }
+
+  Future<void> _assign(Sound sound, {KeyBinding? existing}) async {
+    final board = ref.read(boardProvider);
+    final profile = board.active;
+    if (profile == null) return;
+
+    final captured = await showAssignDialog(
+      context,
+      soundName: sound.name,
+      initialMode: existing?.mode ?? PlaybackMode.once,
+      initialHid: existing?.physicalKeyId,
+      initialMods: existing?.modifiers ?? 0,
+    );
+    if (captured == null) return;
+
+    final db = DatabaseService.instance;
+
+    if (existing != null) await db.deleteBinding(existing.id);
+
+    final binding = KeyBinding(
+      id: 0,
+      profileId: profile.id,
+      physicalKeyId: captured.hidUsage,
+      modifiers: captured.modifiers,
+      soundId: sound.id,
+      mode: captured.mode,
+      volume: existing?.volume ?? 1.0,
+    );
+
+    try {
+      await db.insertBinding(binding);
+    } on DuplicateBindingException {
+      final clash =
+          await db.bindingAt(profile.id, captured.hidUsage, captured.modifiers);
+      final clashName = board.sounds
+          .where((s) => s.id == clash?.soundId)
+          .map((s) => s.name)
+          .firstOrNull;
+
+      if (!mounted) return;
+      final replace = await _confirmReplace(captured, clashName ?? 'another sound');
+      if (replace != true) {
+        // Put the old binding back if we removed one on the way in.
+        if (existing != null) await db.insertBinding(existing, replace: true);
+        await ref.read(boardProvider.notifier).refresh();
+        return;
+      }
+      await db.insertBinding(binding, replace: true);
+    }
+
+    await ref.read(boardProvider.notifier).refresh();
+  }
+
+  Future<bool?> _confirmReplace(CapturedKey k, String currentName) {
+    final parts = <String>[
+      if (k.modifiers & SbMod.ctrl != 0) 'Ctrl',
+      if (k.modifiers & SbMod.shift != 0) 'Shift',
+      if (k.modifiers & SbMod.alt != 0) 'Alt',
+      if (k.modifiers & SbMod.meta != 0) 'Meta',
+      hidLabel(k.hidUsage),
+    ];
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: const Text('Key already assigned', style: TextStyle(fontSize: 16)),
+        content: Text(
+          '${parts.join(" + ")} is already assigned to $currentName.\n\n'
+          'Replace the existing binding?',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Replace')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteSound(Sound s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: const Text('Delete sound', style: TextStyle(fontSize: 16)),
+        content: Text('Remove "${s.name}" and any keys bound to it?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kDanger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await DatabaseService.instance.deleteSound(s);
+    // Free the decoded copy too, or it lingers in memory for the session.
+    await AudioService.instance.unload(s.id);
+    await ref.read(boardProvider.notifier).refresh();
+  }
+
+  Future<void> _renameSound(Sound s) async {
+    final controller = TextEditingController(text: s.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: const Text('Rename sound', style: TextStyle(fontSize: 16)),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Rename')),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    await DatabaseService.instance.updateSound(s.copyWith(name: name));
+    await ref.read(boardProvider.notifier).refresh();
+  }
+
+  Future<void> _newProfile() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kPanel,
+        shape: const RoundedRectangleBorder(
+            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+        title: const Text('New profile', style: TextStyle(fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Gaming, Streaming, …'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Create')),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    final id = await DatabaseService.instance.createProfile(name);
+    await ref.read(boardProvider.notifier).switchProfile(id);
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: kPanel,
+      behavior: SnackBarBehavior.floating,
+      width: 360,
+    ));
+  }
+
+  // ----------------------------------------------------------------- build
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_booted) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: kAccent)),
+      );
+    }
+    if (_bootError != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text('Could not start:\n\n$_bootError',
+                style: const TextStyle(color: kDanger)),
+          ),
+        ),
+      );
+    }
+
+    final board = ref.watch(boardProvider);
+
+    return Scaffold(
+      body: Column(
+        children: [
+          _Header(
+            board: board,
+            onProfileChanged: (id) =>
+                ref.read(boardProvider.notifier).switchProfile(id),
+            onNewProfile: _newProfile,
+          ),
+          _Toolbar(
+            board: board,
+            onImport: _import,
+            onMasterVolume: (v) =>
+                ref.read(boardProvider.notifier).setMasterVolume(v),
+            onKeyboardToggle: (v) =>
+                ref.read(boardProvider.notifier).setKeyboardEnabled(v),
+            onStopAll: () => ref.read(boardProvider.notifier).stopAll(),
+          ),
+          if (board.keyboardError != null)
+            _Banner(
+              icon: Icons.keyboard_alt_outlined,
+              color: kDanger,
+              text: 'Global keyboard unavailable — ${board.keyboardError}',
+            ),
+          if (board.audioError != null)
+            _Banner(
+              icon: Icons.volume_off_outlined,
+              color: kDanger,
+              text: 'Audio engine failed — ${board.audioError}',
+            ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 320,
+                  child: SoundLibrary(
+                    sounds: board.sounds,
+                    pads: board.pads,
+                    onImport: _import,
+                    onAssign: (s) => _assign(s),
+                    onRename: _renameSound,
+                    onDelete: _deleteSound,
+                  ),
+                ),
+                const VerticalDivider(width: 1, color: kRule),
+                Expanded(
+                  child: PadGrid(
+                    pads: board.pads,
+                    onTrigger: (p) => BindingService.instance.trigger(p.binding),
+                    onEdit: (p) => _assign(p.sound, existing: p.binding),
+                    onRemove: (p) async {
+                      await DatabaseService.instance.deleteBinding(p.binding.id);
+                      await ref.read(boardProvider.notifier).refresh();
+                    },
+                    onImport: _import,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------------- bits
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.board,
+    required this.onProfileChanged,
+    required this.onNewProfile,
+  });
+
+  final BoardState board;
+  final ValueChanged<int> onProfileChanged;
+  final VoidCallback onNewProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = board.captureLive && board.keyboardEnabled;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      decoration: const BoxDecoration(
+        color: kPanel,
+        border: Border(bottom: BorderSide(color: kRule)),
+      ),
+      child: Row(children: [
+        Icon(Icons.circle, size: 10, color: live ? kAccent : kMuted),
+        const SizedBox(width: 9),
+        const Text('RUCKUS',
+            style: TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.4,
+                fontSize: 13)),
+        const SizedBox(width: 14),
+        Text(
+          live
+              ? 'listening globally · ${SbBackend.label(board.backend)}'
+              : (board.captureLive ? 'keyboard off' : 'not capturing'),
+          style: const TextStyle(
+              fontFamily: 'monospace', fontSize: 11, color: kMuted),
+        ),
+        const Spacer(),
+        const Text('PROFILE',
+            style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.4,
+                color: kMuted)),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(color: kSunk, border: Border.all(color: kRule)),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: board.active?.id,
+              dropdownColor: kPanel,
+              style: const TextStyle(fontSize: 13, color: kInk),
+              items: [
+                for (final p in board.profiles)
+                  DropdownMenuItem(value: p.id, child: Text(p.name)),
+              ],
+              onChanged: (id) => id == null ? null : onProfileChanged(id),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'New profile',
+          onPressed: onNewProfile,
+          icon: const Icon(Icons.add, size: 18),
+        ),
+      ]),
+    );
+  }
+}
+
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({
+    required this.board,
+    required this.onImport,
+    required this.onMasterVolume,
+    required this.onKeyboardToggle,
+    required this.onStopAll,
+  });
+
+  final BoardState board;
+  final VoidCallback onImport;
+  final ValueChanged<double> onMasterVolume;
+  final ValueChanged<bool> onKeyboardToggle;
+  final VoidCallback onStopAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+      decoration: const BoxDecoration(
+        color: kSunk,
+        border: Border(bottom: BorderSide(color: kRule)),
+      ),
+      child: Row(children: [
+        FilledButton.icon(
+          onPressed: onImport,
+          icon: const Icon(Icons.library_add_outlined, size: 17),
+          label: const Text('Add sounds'),
+          style: FilledButton.styleFrom(
+              shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero)),
+        ),
+        const SizedBox(width: 10),
+        OutlinedButton.icon(
+          onPressed: onStopAll,
+          icon: const Icon(Icons.stop_rounded, size: 17),
+          label: const Text('Stop all'),
+          style: OutlinedButton.styleFrom(
+              shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero)),
+        ),
+        const SizedBox(width: 22),
+        const Text('MASTER',
+            style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.4,
+                color: kMuted)),
+        SizedBox(
+          width: 150,
+          child: Slider(
+            value: board.masterVolume,
+            onChanged: onMasterVolume,
+          ),
+        ),
+        SizedBox(
+          width: 38,
+          child: Text('${(board.masterVolume * 100).round()}%',
+              style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 11.5, color: kInkSoft)),
+        ),
+        const Spacer(),
+        const Text('GLOBAL KEYS',
+            style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: 1.4,
+                color: kMuted)),
+        const SizedBox(width: 8),
+        Switch(
+          value: board.keyboardEnabled,
+          onChanged: board.captureLive ? onKeyboardToggle : null,
+        ),
+      ]),
+    );
+  }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.icon, required this.color, required this.text});
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        color: color.withValues(alpha: 0.12),
+        child: Row(children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 12, color: color))),
+        ]),
+      );
+}
