@@ -14,7 +14,7 @@ Companion to [PLAN.md](PLAN.md). **Phase 0 gates everything else.**
 - [x] ~~`sudo apt install libevdev-dev`~~ — not needed, `sb_evdev.c` uses raw `<linux/input.h>`
 - [~] ~~Prepare a Wayland test target~~ — **out of scope**
 - [~] ~~Prepare a Windows test machine~~ — **out of scope**
-- [ ] `git init`, push empty repo to GitHub, add Flutter `.gitignore` — not done yet
+- [x] `git init`, repo pushed to github.com/Abhi-shekes/ruckus with `.gitignore`
 - [x] `flutter create --platforms=linux,windows spike/` — throwaway, no UI beyond a debug console
 
 ### Audio spike
@@ -32,7 +32,7 @@ Companion to [PLAN.md](PLAN.md). **Phase 0 gates everything else.**
 - [x] Map evdev keycode → USB HID usage code (static US-QWERTY table)
 - [x] Bridge to Dart with FFI + `NativeCallable.listener`
 - [x] Verify capture works with another window focused — 52 transitions captured
-- [ ] Verify capture with the window fully **minimised** ← one click, closes criterion 2
+- [x] Verify capture with the window fully **minimised** — confirmed by hand
 - [~] ~~Verify on Wayland~~ — **out of scope**
 - [x] Note behaviour when the user is *not* in `input` (must fail cleanly, not crash)
 
@@ -91,26 +91,18 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 
 ## Phase 2 — Global keyboard + background  (partly done)
 
-- [x] Global capture running from launch, backend + status shown in the header
-- [x] Global kill switch — the GLOBAL KEYS toggle, persisted
+- [x] Global capture running from launch; backend + status shown in the header
+- [x] Global kill switch — the GLOBAL KEYS toggle, persisted across restarts
 - [x] Auto-repeat ignored (`KeyKind.repeat` dropped before dispatch)
 - [x] Warn when binding a bare letter/digit, or Esc/Enter/Tab
-- [ ] **System tray** — needs `sudo apt install libayatana-appindicator3-dev`
+- [x] Verified: minimise → focus another window → press a bound key → sound plays
+- [~] ~~Linux first-run permission wizard~~ — **not needed**, XRecord requires no permissions
+- [ ] **System tray** — Open · Profile ▸ · Keyboard on/off · Stop all · Quit
+      *(blocked: `sudo apt install libayatana-appindicator3-dev`)*
 - [ ] Close-to-tray, restore on click, single-instance guard
 - [ ] `launch_at_startup` toggle
-
-- [ ] `GlobalKeyboardService` with a platform-selected backend + capability flags
-      (`canSuppress` true on Windows, false on Linux)
-- [ ] Setting: ○ Application Only / ● Global Keyboard
-- [ ] Linux first-run permission wizard — detect failure, explain, show the exact
-      `usermod -aG input` command, offer XRecord fallback on X11
-- [ ] Ignore auto-repeat events (type 2) unless a mode wants them
-- [ ] System tray: Open · Profile ▸ · Keyboard Enabled/Disabled · Stop All Sounds · Settings · Quit
-- [ ] Close-to-tray, restore on click, single-instance guard
-- [ ] `launch_at_startup` toggle
-- [ ] Global kill switch — one click disables all capture
-- [ ] Warn when binding a common system shortcut (Ctrl+C/V/Z/Alt+Tab/…)
-- [ ] Verify: minimise → focus a browser/game → press a bound key → sound plays. All three OS targets.
+- [ ] Setting: ○ Application Only / ● Global — currently global-only
+- [ ] Warn on common system shortcuts (Ctrl+C/V/Z, Alt+Tab) as well as bare keys
 
 ---
 
@@ -142,10 +134,12 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [ ] Full visual keyboard (PLAN §9 layout) — mapped vs unmapped clearly distinct
 - [ ] Click a key on the visual keyboard to assign; drag a sound onto a key
 - [ ] Drag-and-drop audio files from the desktop into the app
-- [ ] Search, favourites, sort
-- [ ] Live playback indicators + progress on pads
-- [ ] Dark / light / system themes
-- [ ] Empty states, error toasts, loading states
+- [x] Search in the library
+- [ ] Favourites and custom sort
+- [x] Live playback indicator on pads (border + tint while voices are alive)
+- [ ] Playback *progress* on pads
+- [ ] Light + system themes — currently dark-only
+- [x] Empty states, error banners, toasts, loading state
 - [ ] `libxkbcommon` layout-aware key labels on Linux (replaces the static US table)
 - [ ] Accessibility: focus order, semantic labels, keyboard-only navigation, contrast
 - [ ] Startup profiling — target cold start under 2 s
@@ -155,20 +149,23 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 ## Phase 6 — Release  (~1 week)
 
 - [~] ~~Windows installer~~ — out of scope
-- [ ] `flutter build linux --release`; `.deb` including the udev rule for `/dev/input` access
+- [ ] `flutter build linux --release` + `.deb` package
 - [ ] AppImage build
-- [ ] GitHub Actions matrix (Ubuntu + Windows runners, free tier) producing both artefacts
-- [ ] README: features, install, first-run permissions, privacy statement
-- [ ] Troubleshooting doc: AV false positives, `input` group, Wayland, no audio device
-- [ ] Test matrix — Ubuntu X11 only
+- [ ] GitHub Actions build on the free Ubuntu runner
+- [x] README: features, install, privacy statement, architecture, known gaps
+- [ ] Troubleshooting doc: no audio device, glibc shims, keys not firing
+- [x] Test matrix — Ubuntu X11: 18/18 automated + manual pass
 - [ ] Version `1.0.0`, tag, GitHub Release
 
 ---
 
 ## Standing rules
 
-- [ ] Never log, persist, or transmit a keystroke — anywhere, ever (PLAN §5)
-- [ ] No network code in the app at all
-- [ ] Nothing on the keypress path may touch the widget tree or a Riverpod provider
-- [ ] Every new audio format or key class gets added to the §28 test matrix
-- [ ] Re-measure latency at the end of each phase; a regression past 25 ms is a bug
+Invariants, not tasks. All currently hold — re-check them when touching the
+keypress path.
+
+- Never log, persist, or transmit a keystroke — anywhere, ever (PLAN §5)
+- No network code in the app at all
+- Nothing on the keypress path may touch the widget tree or a Riverpod provider
+- Every new audio format or key class gets added to the test matrix
+- Re-measure latency at the end of each phase; a regression past 25 ms is a bug
