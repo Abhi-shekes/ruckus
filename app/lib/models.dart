@@ -37,6 +37,7 @@ class Sound {
   final int durationMs;
   final double volume;
   final bool isMissing;
+  final bool favourite;
 
   const Sound({
     required this.id,
@@ -47,6 +48,7 @@ class Sound {
     required this.durationMs,
     this.volume = 1.0,
     this.isMissing = false,
+    this.favourite = false,
   });
 
   Duration get duration => Duration(milliseconds: durationMs);
@@ -58,7 +60,9 @@ class Sound {
         : '${(s ~/ 60)}:${(s % 60).toStringAsFixed(0).padLeft(2, '0')}';
   }
 
-  Sound copyWith({String? name, double? volume, bool? isMissing}) => Sound(
+  Sound copyWith(
+          {String? name, double? volume, bool? isMissing, bool? favourite}) =>
+      Sound(
         id: id,
         name: name ?? this.name,
         fileHash: fileHash,
@@ -67,6 +71,7 @@ class Sound {
         durationMs: durationMs,
         volume: volume ?? this.volume,
         isMissing: isMissing ?? this.isMissing,
+        favourite: favourite ?? this.favourite,
       );
 
   factory Sound.fromMap(Map<String, Object?> m) => Sound(
@@ -78,6 +83,7 @@ class Sound {
         durationMs: m['duration_ms'] as int? ?? 0,
         volume: (m['volume'] as num?)?.toDouble() ?? 1.0,
         isMissing: (m['is_missing'] as int? ?? 0) == 1,
+        favourite: (m['favourite'] as int? ?? 0) == 1,
       );
 
   Map<String, Object?> toMap() => {
@@ -88,6 +94,7 @@ class Sound {
         'duration_ms': durationMs,
         'volume': volume,
         'is_missing': isMissing ? 1 : 0,
+        'favourite': favourite ? 1 : 0,
       };
 }
 
@@ -153,6 +160,17 @@ class KeyBinding {
         'volume': volume,
         'enabled': enabled ? 1 : 0,
       };
+}
+
+/// How the library list is ordered.
+enum LibrarySort {
+  name('Name'),
+  recent('Recently added'),
+  duration('Duration'),
+  format('Format');
+
+  const LibrarySort(this.label);
+  final String label;
 }
 
 /// A binding joined to the sound it fires — what the pad grid renders.

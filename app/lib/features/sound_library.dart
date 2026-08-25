@@ -16,6 +16,9 @@ class SoundLibrary extends StatefulWidget {
     required this.onAssign,
     required this.onRename,
     required this.onDelete,
+    required this.onToggleFavourite,
+    required this.sort,
+    required this.onSortChanged,
   });
 
   final List<Sound> sounds;
@@ -24,6 +27,9 @@ class SoundLibrary extends StatefulWidget {
   final void Function(Sound) onAssign;
   final void Function(Sound) onRename;
   final void Function(Sound) onDelete;
+  final void Function(Sound) onToggleFavourite;
+  final LibrarySort sort;
+  final ValueChanged<LibrarySort> onSortChanged;
 
   @override
   State<SoundLibrary> createState() => _SoundLibraryState();
@@ -55,38 +61,55 @@ class _SoundLibraryState extends State<SoundLibrary> {
     }
 
     return Container(
-      color: kSunk,
+      color: context.c.sunk,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
             child: Row(children: [
-              const Text('LIBRARY',
+              Text('LIBRARY',
                   style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 10,
                       letterSpacing: 1.6,
-                      color: kMuted)),
-              const Spacer(),
+                      color: context.c.muted)),
+              Spacer(),
               Text('${widget.sounds.length}',
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 11, color: kMuted)),
+                  style: TextStyle(
+                      fontFamily: 'monospace', fontSize: 11, color: context.c.muted)),
+              SizedBox(width: 4),
+              PopupMenuButton<LibrarySort>(
+                tooltip: 'Sort',
+                iconSize: 15,
+                padding: EdgeInsets.zero,
+                icon: Icon(Icons.sort, color: context.c.muted),
+                onSelected: widget.onSortChanged,
+                itemBuilder: (_) => [
+                  for (final s in LibrarySort.values)
+                    CheckedPopupMenuItem(
+                      value: s,
+                      checked: s == widget.sort,
+                      height: 36,
+                      child: Text(s.label),
+                    ),
+                ],
+              ),
             ]),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
             child: TextField(
               onChanged: (v) => setState(() => _query = v),
-              style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
+              style: TextStyle(fontSize: 13),
+              decoration: InputDecoration(
                 hintText: 'Search',
                 prefixIcon: Icon(Icons.search, size: 17),
                 contentPadding: EdgeInsets.symmetric(vertical: 6),
               ),
             ),
           ),
-          const Divider(height: 1, color: kRule),
+          Divider(height: 1, color: context.c.rule),
           Expanded(
             child: widget.sounds.isEmpty
                 ? const _EmptyLibrary()
@@ -94,11 +117,13 @@ class _SoundLibraryState extends State<SoundLibrary> {
                     padding: EdgeInsets.zero,
                     itemCount: visible.length,
                     separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: kRule),
+                        Divider(height: 1, color: context.c.rule),
                     itemBuilder: (_, i) => _Row(
                       sound: visible[i],
                       boundTo: boundKeys[visible[i].id],
                       onAssign: () => widget.onAssign(visible[i]),
+                      onToggleFavourite: () =>
+                          widget.onToggleFavourite(visible[i]),
                       onRename: () => widget.onRename(visible[i]),
                       onDelete: () => widget.onDelete(visible[i]),
                     ),
@@ -117,6 +142,7 @@ class _Row extends StatefulWidget {
     required this.onAssign,
     required this.onRename,
     required this.onDelete,
+    required this.onToggleFavourite,
   });
 
   final Sound sound;
@@ -124,6 +150,7 @@ class _Row extends StatefulWidget {
   final VoidCallback onAssign;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onToggleFavourite;
 
   @override
   State<_Row> createState() => _RowState();
@@ -139,7 +166,7 @@ class _RowState extends State<_Row> {
     setState(() => _previewing = true);
     final handle = await AudioService.instance.play(s.id, volume: s.volume);
     await Future<void>.delayed(
-        s.durationMs > 0 ? s.duration : const Duration(seconds: 1));
+        s.durationMs > 0 ? s.duration : Duration(seconds: 1));
     if (handle != null) await AudioService.instance.stop(handle);
     if (mounted) setState(() => _previewing = false);
   }
@@ -151,7 +178,7 @@ class _RowState extends State<_Row> {
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
       child: Container(
-        color: _hovering ? kPanel : Colors.transparent,
+        color: _hovering ? context.c.panel : Colors.transparent,
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
         child: Row(children: [
           IconButton(
@@ -161,7 +188,7 @@ class _RowState extends State<_Row> {
             tooltip: 'Preview',
             icon: Icon(
               _previewing ? Icons.graphic_eq : Icons.play_arrow_rounded,
-              color: _previewing ? kAccent : (s.isMissing ? kMuted : kInkSoft),
+              color: _previewing ? context.c.accent : (s.isMissing ? context.c.muted : context.c.inkSoft),
             ),
           ),
           Expanded(
@@ -173,8 +200,8 @@ class _RowState extends State<_Row> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 12.5,
-                        color: s.isMissing ? kMuted : kInk)),
-                const SizedBox(height: 2),
+                        color: s.isMissing ? context.c.muted : context.c.ink)),
+                SizedBox(height: 2),
                 Row(children: [
                   Text(
                     s.isMissing ? 'FILE MISSING' : s.format,
@@ -182,47 +209,56 @@ class _RowState extends State<_Row> {
                         fontFamily: 'monospace',
                         fontSize: 9,
                         letterSpacing: 0.8,
-                        color: s.isMissing ? kDanger : kMuted),
+                        color: s.isMissing ? context.c.danger : context.c.muted),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(s.durationLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 9,
-                          color: kMuted)),
+                          color: context.c.muted)),
                   if (widget.boundTo != null) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Container(
                       padding:
                           const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      color: const Color(0xFF10312F),
+                      color: Color(0xFF10312F),
                       child: Text(widget.boundTo!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 9,
-                              color: kAccent)),
+                              color: context.c.accent)),
                     ),
                   ],
                 ]),
               ],
             ),
           ),
+          if (_hovering || s.favourite)
+            IconButton(
+              onPressed: widget.onToggleFavourite,
+              iconSize: 15,
+              visualDensity: VisualDensity.compact,
+              tooltip: s.favourite ? 'Unstar' : 'Star',
+              icon: Icon(s.favourite ? Icons.star : Icons.star_border,
+                  color: s.favourite ? context.c.warn : context.c.muted),
+            ),
           if (_hovering) ...[
             IconButton(
               onPressed: widget.onAssign,
               iconSize: 16,
               visualDensity: VisualDensity.compact,
               tooltip: widget.boundTo == null ? 'Assign key' : 'Change key',
-              icon: const Icon(Icons.keyboard_outlined, color: kInkSoft),
+              icon: Icon(Icons.keyboard_outlined, color: context.c.inkSoft),
             ),
             PopupMenuButton<String>(
               tooltip: '',
               iconSize: 16,
-              color: kPanel,
-              icon: const Icon(Icons.more_vert, color: kMuted),
+              color: context.c.panel,
+              icon: Icon(Icons.more_vert, color: context.c.muted),
               onSelected: (v) =>
                   v == 'rename' ? widget.onRename() : widget.onDelete(),
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(value: 'rename', height: 36, child: Text('Rename')),
                 PopupMenuItem(value: 'delete', height: 36, child: Text('Delete')),
               ],
@@ -238,19 +274,19 @@ class _EmptyLibrary extends StatelessWidget {
   const _EmptyLibrary();
 
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.graphic_eq, size: 32, color: kRuleStrong),
+            Icon(Icons.graphic_eq, size: 32, color: context.c.ruleStrong),
             SizedBox(height: 12),
             Text('No sounds yet',
-                style: TextStyle(fontSize: 13, color: kInkSoft)),
+                style: TextStyle(fontSize: 13, color: context.c.inkSoft)),
             SizedBox(height: 6),
             Text('MP3, WAV, OGG and FLAC',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: kMuted)),
+                style: TextStyle(fontSize: 11, color: context.c.muted)),
           ],
         ),
       );

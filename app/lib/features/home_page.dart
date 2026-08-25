@@ -129,10 +129,10 @@ class _HomePageState extends ConsumerState<HomePage>
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: const Text('Key already assigned', style: TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text('Key already assigned', style: TextStyle(fontSize: 16)),
         content: Text(
           '${parts.join(" + ")} is already assigned to $currentName.\n\n'
           'Replace the existing binding?',
@@ -140,10 +140,10 @@ class _HomePageState extends ConsumerState<HomePage>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Replace')),
+              child: Text('Replace')),
         ],
       ),
     );
@@ -153,19 +153,19 @@ class _HomePageState extends ConsumerState<HomePage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: const Text('Delete sound', style: TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text('Delete sound', style: TextStyle(fontSize: 16)),
         content: Text('Remove "${s.name}" and any keys bound to it?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kDanger),
+            style: FilledButton.styleFrom(backgroundColor: context.c.danger),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text('Delete'),
           ),
         ],
       ),
@@ -182,17 +182,17 @@ class _HomePageState extends ConsumerState<HomePage>
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: const Text('Rename sound', style: TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text('Rename sound', style: TextStyle(fontSize: 16)),
         content: TextField(controller: controller, autofocus: true),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: const Text('Rename')),
+              child: Text('Rename')),
         ],
       ),
     );
@@ -206,21 +206,21 @@ class _HomePageState extends ConsumerState<HomePage>
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: const Text('New profile', style: TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text('New profile', style: TextStyle(fontSize: 16)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Gaming, Streaming, …'),
+          decoration: InputDecoration(hintText: 'Gaming, Streaming, …'),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: const Text('Create')),
+              child: Text('Create')),
         ],
       ),
     );
@@ -262,29 +262,29 @@ class _HomePageState extends ConsumerState<HomePage>
     final embed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: const Text('Export profile', style: TextStyle(fontSize: 16)),
-        content: const SizedBox(
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text('Export profile', style: TextStyle(fontSize: 16)),
+        content: SizedBox(
           width: 400,
           child: Text(
             'Include the audio itself?\n\n'
             'With audio, the file works on any machine but is much larger. '
             'Without it, the file is tiny and relinks to sounds already in the '
             'target library.',
-            style: TextStyle(fontSize: 12.5, color: kInkSoft),
+            style: TextStyle(fontSize: 12.5, color: context.c.inkSoft),
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
           OutlinedButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Bindings only')),
+              child: Text('Bindings only')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Include audio')),
+              child: Text('Include audio')),
         ],
       ),
     );
@@ -327,10 +327,10 @@ class _HomePageState extends ConsumerState<HomePage>
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: Text(title, style: const TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text(title, style: TextStyle(fontSize: 16)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -339,7 +339,7 @@ class _HomePageState extends ConsumerState<HomePage>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
               child: Text(action)),
@@ -353,17 +353,17 @@ class _HomePageState extends ConsumerState<HomePage>
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kPanel,
-        shape: const RoundedRectangleBorder(
-            side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
-        title: Text(title, style: const TextStyle(fontSize: 16)),
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
+        title: Text(title, style: TextStyle(fontSize: 16)),
         content: SizedBox(width: 420, child: Text(body)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text('Cancel')),
           FilledButton(
-            style: danger ? FilledButton.styleFrom(backgroundColor: kDanger) : null,
+            style: danger ? FilledButton.styleFrom(backgroundColor: context.c.danger) : null,
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(action),
           ),
@@ -425,7 +425,7 @@ class _HomePageState extends ConsumerState<HomePage>
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: kPanel,
+      backgroundColor: context.c.panel,
       behavior: SnackBarBehavior.floating,
       width: 360,
     ));
@@ -436,8 +436,8 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   Widget build(BuildContext context) {
     if (!_booted) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: kAccent)),
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator(color: context.c.accent)),
       );
     }
     if (_bootError != null) {
@@ -446,7 +446,7 @@ class _HomePageState extends ConsumerState<HomePage>
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Text('Could not start:\n\n$_bootError',
-                style: const TextStyle(color: kDanger)),
+                style: TextStyle(color: context.c.danger)),
           ),
         ),
       );
@@ -490,13 +490,13 @@ class _HomePageState extends ConsumerState<HomePage>
           if (board.keyboardError != null)
             _Banner(
               icon: Icons.keyboard_alt_outlined,
-              color: kDanger,
+              color: context.c.danger,
               text: 'Global keyboard unavailable — ${board.keyboardError}',
             ),
           if (board.audioError != null)
             _Banner(
               icon: Icons.volume_off_outlined,
-              color: kDanger,
+              color: context.c.danger,
               text: 'Audio engine failed — ${board.audioError}',
             ),
           Expanded(
@@ -512,9 +512,14 @@ class _HomePageState extends ConsumerState<HomePage>
                     onAssign: (s) => _assign(s),
                     onRename: _renameSound,
                     onDelete: _deleteSound,
+                    onToggleFavourite: (s) =>
+                        ref.read(boardProvider.notifier).toggleFavourite(s),
+                    sort: board.sort,
+                    onSortChanged: (s) =>
+                        ref.read(boardProvider.notifier).setSort(s),
                   ),
                 ),
-                const VerticalDivider(width: 1, color: kRule),
+                VerticalDivider(width: 1, color: context.c.rule),
                 Expanded(
                   child: PadGrid(
                     pads: board.pads,
@@ -556,43 +561,43 @@ class _Header extends StatelessWidget {
     final live = board.captureLive && board.keyboardEnabled;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-      decoration: const BoxDecoration(
-        color: kPanel,
-        border: Border(bottom: BorderSide(color: kRule)),
+      decoration: BoxDecoration(
+        color: context.c.panel,
+        border: Border(bottom: BorderSide(color: context.c.rule)),
       ),
       child: Row(children: [
-        Icon(Icons.circle, size: 10, color: live ? kAccent : kMuted),
-        const SizedBox(width: 9),
-        const Text('RUCKUS',
+        Icon(Icons.circle, size: 10, color: live ? context.c.accent : context.c.muted),
+        SizedBox(width: 9),
+        Text('RUCKUS',
             style: TextStyle(
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2.4,
                 fontSize: 13)),
-        const SizedBox(width: 14),
+        SizedBox(width: 14),
         Text(
           live
               ? 'listening globally · ${SbBackend.label(board.backend)}'
               : (board.captureLive ? 'keyboard off' : 'not capturing'),
-          style: const TextStyle(
-              fontFamily: 'monospace', fontSize: 11, color: kMuted),
+          style: TextStyle(
+              fontFamily: 'monospace', fontSize: 11, color: context.c.muted),
         ),
-        const Spacer(),
-        const Text('PROFILE',
+        Spacer(),
+        Text('PROFILE',
             style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
                 letterSpacing: 1.4,
-                color: kMuted)),
-        const SizedBox(width: 10),
+                color: context.c.muted)),
+        SizedBox(width: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(color: kSunk, border: Border.all(color: kRule)),
+          decoration: BoxDecoration(color: context.c.sunk, border: Border.all(color: context.c.rule)),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: board.active?.id,
-              dropdownColor: kPanel,
-              style: const TextStyle(fontSize: 13, color: kInk),
+              dropdownColor: context.c.panel,
+              style: TextStyle(fontSize: 13, color: context.c.ink),
               items: [
                 for (final p in board.profiles)
                   DropdownMenuItem(value: p.id, child: Text(p.name)),
@@ -604,15 +609,15 @@ class _Header extends StatelessWidget {
         IconButton(
           tooltip: 'New profile',
           onPressed: onNewProfile,
-          icon: const Icon(Icons.add, size: 18),
+          icon: Icon(Icons.add, size: 18),
         ),
         PopupMenuButton<String>(
           tooltip: 'Profile actions',
           iconSize: 18,
-          color: kPanel,
-          icon: const Icon(Icons.more_vert, color: kMuted),
+          color: context.c.panel,
+          icon: Icon(Icons.more_vert, color: context.c.muted),
           onSelected: onProfileAction,
-          itemBuilder: (_) => const [
+          itemBuilder: (_) => [
             PopupMenuItem(value: 'rename', height: 36, child: Text('Rename')),
             PopupMenuItem(value: 'duplicate', height: 36, child: Text('Duplicate')),
             PopupMenuDivider(),
@@ -652,35 +657,35 @@ class _Toolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-      decoration: const BoxDecoration(
-        color: kSunk,
-        border: Border(bottom: BorderSide(color: kRule)),
+      decoration: BoxDecoration(
+        color: context.c.sunk,
+        border: Border(bottom: BorderSide(color: context.c.rule)),
       ),
       child: Row(children: [
         FilledButton.icon(
           onPressed: onImport,
-          icon: const Icon(Icons.library_add_outlined, size: 17),
-          label: const Text('Add sounds'),
+          icon: Icon(Icons.library_add_outlined, size: 17),
+          label: Text('Add sounds'),
           style: FilledButton.styleFrom(
-              shape: const RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.zero)),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         OutlinedButton.icon(
           onPressed: onStopAll,
-          icon: const Icon(Icons.stop_rounded, size: 17),
-          label: const Text('Stop all'),
+          icon: Icon(Icons.stop_rounded, size: 17),
+          label: Text('Stop all'),
           style: OutlinedButton.styleFrom(
-              shape: const RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.zero)),
         ),
-        const SizedBox(width: 22),
-        const Text('MASTER',
+        SizedBox(width: 22),
+        Text('MASTER',
             style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
                 letterSpacing: 1.4,
-                color: kMuted)),
+                color: context.c.muted)),
         SizedBox(
           width: 150,
           child: Slider(
@@ -691,39 +696,39 @@ class _Toolbar extends StatelessWidget {
         SizedBox(
           width: 38,
           child: Text('${(board.masterVolume * 100).round()}%',
-              style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 11.5, color: kInkSoft)),
+              style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 11.5, color: context.c.inkSoft)),
         ),
-        const Spacer(),
+        Spacer(),
         _ModeToggle(
           global: board.globalMode,
           enabled: board.captureLive && board.keyboardEnabled,
           onChanged: onGlobalModeChanged,
         ),
-        const SizedBox(width: 18),
-        const Text('KEYS',
+        SizedBox(width: 18),
+        Text('KEYS',
             style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 10,
                 letterSpacing: 1.4,
-                color: kMuted)),
-        const SizedBox(width: 8),
+                color: context.c.muted)),
+        SizedBox(width: 8),
         Switch(
           value: board.keyboardEnabled,
           onChanged: board.captureLive ? onKeyboardToggle : null,
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         IconButton(
           tooltip: 'Diagnostics',
           onPressed: onDiagnostics,
           iconSize: 18,
-          icon: const Icon(Icons.speed_outlined, color: kMuted),
+          icon: Icon(Icons.speed_outlined, color: context.c.muted),
         ),
         IconButton(
           tooltip: 'Settings',
           onPressed: onSettings,
           iconSize: 18,
-          icon: const Icon(Icons.tune, color: kMuted),
+          icon: Icon(Icons.tune, color: context.c.muted),
         ),
       ]),
     );
@@ -753,7 +758,7 @@ class _ModeToggle extends StatelessWidget {
           onTap: enabled && !on ? () => onChanged(isGlobal) : null,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-            color: on ? kAccent.withValues(alpha: 0.18) : Colors.transparent,
+            color: on ? context.c.accent.withValues(alpha: 0.18) : Colors.transparent,
             child: Text(
               label,
               style: TextStyle(
@@ -761,7 +766,7 @@ class _ModeToggle extends StatelessWidget {
                 fontSize: 10,
                 letterSpacing: 1.1,
                 fontWeight: on ? FontWeight.bold : FontWeight.normal,
-                color: !enabled ? kMuted : (on ? kAccent : kInkSoft),
+                color: !enabled ? context.c.muted : (on ? context.c.accent : context.c.inkSoft),
               ),
             ),
           ),
@@ -770,10 +775,10 @@ class _ModeToggle extends StatelessWidget {
     }
 
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: kRule)),
+      decoration: BoxDecoration(border: Border.all(color: context.c.rule)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         seg('APP ONLY', false, 'Keys fire only while Ruckus is focused'),
-        Container(width: 1, height: 22, color: kRule),
+        Container(width: 1, height: 22, color: context.c.rule),
         seg('GLOBAL', true, 'Keys fire from any application'),
       ]),
     );
@@ -793,7 +798,7 @@ class _Banner extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         child: Row(children: [
           Icon(icon, size: 16, color: color),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
               child: Text(text,
                   style: TextStyle(fontSize: 12, color: color))),

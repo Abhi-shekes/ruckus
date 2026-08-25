@@ -17,7 +17,7 @@ class CapturedKey {
   final int hidUsage;
   final int modifiers;
   final PlaybackMode mode;
-  const CapturedKey(this.hidUsage, this.modifiers, this.mode);
+  CapturedKey(this.hidUsage, this.modifiers, this.mode);
 }
 
 /// Returns null if cancelled.
@@ -152,11 +152,11 @@ class _AssignDialogState extends State<_AssignDialog> {
     const mono = TextStyle(fontFamily: 'monospace');
 
     return AlertDialog(
-      backgroundColor: kPanel,
-      shape: const RoundedRectangleBorder(
-          side: BorderSide(color: kRule), borderRadius: BorderRadius.zero),
+      backgroundColor: context.c.panel,
+      shape: RoundedRectangleBorder(
+          side: BorderSide(color: context.c.rule), borderRadius: BorderRadius.zero),
       title: Text('Assign a key to ${widget.soundName}',
-          style: const TextStyle(fontSize: 16)),
+          style: TextStyle(fontSize: 16)),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -168,9 +168,9 @@ class _AssignDialogState extends State<_AssignDialog> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 26),
               decoration: BoxDecoration(
-                color: kSunk,
+                color: context.c.sunk,
                 border: Border.all(
-                    color: _hid == null ? kRuleStrong : kAccent, width: 1.5),
+                    color: _hid == null ? context.c.ruleStrong : context.c.accent, width: 1.5),
               ),
               child: Center(
                 child: Text(
@@ -178,12 +178,12 @@ class _AssignDialogState extends State<_AssignDialog> {
                   style: mono.copyWith(
                     fontSize: _hid == null ? 13 : 21,
                     fontWeight: FontWeight.bold,
-                    color: _hid == null ? kMuted : kAccent,
+                    color: _hid == null ? context.c.muted : context.c.accent,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
 
             if (_hid != null)
               TextButton.icon(
@@ -191,8 +191,8 @@ class _AssignDialogState extends State<_AssignDialog> {
                   _hid = null;
                   _listening = true;
                 }),
-                icon: const Icon(Icons.refresh, size: 15),
-                label: const Text('Press another key'),
+                icon: Icon(Icons.refresh, size: 15),
+                label: Text('Press another key'),
               ),
 
             if (_isRisky)
@@ -210,23 +210,23 @@ class _AssignDialogState extends State<_AssignDialog> {
                   'will keep doing that — Ruckus cannot take the key away — so '
                   'you would fire this sound every time you use it.'),
 
-            const SizedBox(height: 14),
-            const Text('WHEN PRESSED',
+            SizedBox(height: 14),
+            Text('WHEN PRESSED',
                 style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 10,
                     letterSpacing: 1.4,
-                    color: kMuted)),
-            const SizedBox(height: 6),
+                    color: context.c.muted)),
+            SizedBox(height: 6),
             DropdownButtonFormField<PlaybackMode>(
               initialValue: _mode,
-              dropdownColor: kPanel,
+              dropdownColor: context.c.panel,
               items: [
                 for (final m in PlaybackMode.values)
                   DropdownMenuItem(
                     value: m,
                     child: Text('${m.label}  —  ${_describe(m)}',
-                        style: const TextStyle(fontSize: 13)),
+                        style: TextStyle(fontSize: 13)),
                   ),
               ],
               onChanged: (m) => setState(() => _mode = m ?? _mode),
@@ -236,12 +236,12 @@ class _AssignDialogState extends State<_AssignDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context), child: Text('Cancel')),
         FilledButton(
           onPressed: _hid == null
               ? null
               : () => Navigator.pop(context, CapturedKey(_hid!, _mods, _mode)),
-          child: const Text('Save binding'),
+          child: Text('Save binding'),
         ),
       ],
     );
@@ -265,15 +265,15 @@ class _Warning extends StatelessWidget {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF2E2415),
-          border: Border.all(color: kWarn.withValues(alpha: 0.5)),
+          color: Color(0xFF2E2415),
+          border: Border.all(color: context.c.warn.withValues(alpha: 0.5)),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.warning_amber_rounded, size: 15, color: kWarn),
-          const SizedBox(width: 8),
+          Icon(Icons.warning_amber_rounded, size: 15, color: context.c.warn),
+          SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: const TextStyle(fontSize: 11.5, color: kInkSoft)),
+                style: TextStyle(fontSize: 11.5, color: context.c.inkSoft)),
           ),
         ]),
       );

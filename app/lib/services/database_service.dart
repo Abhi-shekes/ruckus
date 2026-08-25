@@ -43,9 +43,10 @@ class DatabaseService {
     _db = await databaseFactory.openDatabase(
       '${_root.path}/soundboard.db',
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: _createSchema,
+        onUpgrade: _upgradeSchema,
       ),
     );
     await _ensureDefaultProfile();
@@ -63,6 +64,7 @@ class DatabaseService {
         duration_ms INTEGER NOT NULL DEFAULT 0,
         volume      REAL    NOT NULL DEFAULT 1.0,
         is_missing  INTEGER NOT NULL DEFAULT 0,
+        favourite   INTEGER NOT NULL DEFAULT 0,
         created_at  INTEGER NOT NULL,
         updated_at  INTEGER NOT NULL
       )''');
@@ -93,6 +95,13 @@ class DatabaseService {
 
     await db.execute(
         'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  }
+
+  Future<void> _upgradeSchema(Database db, int from, int to) async {
+    if (from < 2) {
+      await db.execute(
+          'ALTER TABLE sounds ADD COLUMN favourite INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   int get _now => DateTime.now().millisecondsSinceEpoch;

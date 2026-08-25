@@ -135,10 +135,10 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [ ] Click a key on the visual keyboard to assign; drag a sound onto a key
 - [ ] Drag-and-drop audio files from the desktop into the app
 - [x] Search in the library
-- [ ] Favourites and custom sort
+- [x] Favourites (star, floats to top) and sort by name / recent / duration / format
 - [x] Live playback indicator on pads (border + tint while voices are alive)
-- [ ] Playback *progress* on pads
-- [ ] Light + system themes — currently dark-only
+- [x] Playback progress bar on pads; open-ended modes show a steady bar
+- [x] Dark / light / system themes via a token set, persisted
 - [x] Empty states, error banners, toasts, loading state
 - [ ] `libxkbcommon` layout-aware key labels on Linux (replaces the static US table)
 - [ ] Accessibility: focus order, semantic labels, keyboard-only navigation, contrast

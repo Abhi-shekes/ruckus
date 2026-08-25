@@ -1,6 +1,7 @@
 // Riverpod wiring. UI state only — the keypress path never comes through here
 // (PLAN D8).
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models.dart';
@@ -32,6 +33,8 @@ class BoardState {
   final int backend;
   final String? keyboardError;
   final String? audioError;
+  final ThemeMode themeMode;
+  final LibrarySort sort;
   final bool trayActive;
   final bool closeToTray;
   final bool launchAtStartup;
@@ -47,6 +50,8 @@ class BoardState {
     this.backend = SbBackend.none,
     this.keyboardError,
     this.audioError,
+    this.themeMode = ThemeMode.dark,
+    this.sort = LibrarySort.name,
     this.trayActive = false,
     this.closeToTray = true,
     this.launchAtStartup = false,
@@ -65,6 +70,8 @@ class BoardState {
     int? backend,
     String? keyboardError,
     String? audioError,
+    ThemeMode? themeMode,
+    LibrarySort? sort,
     bool? trayActive,
     bool? closeToTray,
     bool? launchAtStartup,
@@ -80,6 +87,8 @@ class BoardState {
         backend: backend ?? this.backend,
         keyboardError: keyboardError ?? this.keyboardError,
         audioError: audioError ?? this.audioError,
+        themeMode: themeMode ?? this.themeMode,
+        sort: sort ?? this.sort,
         trayActive: trayActive ?? this.trayActive,
         closeToTray: closeToTray ?? this.closeToTray,
         launchAtStartup: launchAtStartup ?? this.launchAtStartup,
@@ -103,6 +112,14 @@ class BoardNotifier extends Notifier<BoardState> {
     final master = await _db.getDouble('master_volume', 0.8);
     final kbOn = await _db.getBool('keyboard_enabled', true);
     final global = await _db.getBool('global_mode', true);
+    final theme = switch (await _db.getSetting('theme_mode')) {
+      'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.dark,
+    };
+    final sortName = await _db.getSetting('library_sort');
+    final sort = LibrarySort.values
+        .firstWhere((v) => v.name == sortName, orElse: () => LibrarySort.name);
     _audio.setMasterVolume(master);
 
     final sounds = await _db.sounds();
@@ -121,6 +138,8 @@ class BoardNotifier extends Notifier<BoardState> {
       masterVolume: master,
       keyboardEnabled: kbOn,
       globalMode: global,
+      themeMode: theme,
+      sort: sort,
       backend: _keyboard.activeBackend,
       keyboardError: kbError,
       audioError: audioError,
@@ -171,6 +190,22 @@ class BoardNotifier extends Notifier<BoardState> {
     );
   }
 
+  Future<void> setThemeMode(ThemeMode m) async {
+    state = state.copyWith(themeMode: m);
+    await _db.setSetting('theme_mode', m.name);
+  }
+
+  Future<void> setSort(LibrarySort s) async {
+    state = state.copyWith(sort: s);
+    await _db.setSetting('library_sort', s.name);
+    await refresh();
+  }
+
+  Future<void> toggleFavourite(Sound sound) async {
+    await _db.updateSound(sound.copyWith(favourite: !sound.favourite));
+    await refresh();
+  }
+
   Future<void> setCloseToTray(bool on) async {
     state = state.copyWith(closeToTray: on);
     await _desktop.setCloseToTray(on && state.trayActive);
@@ -187,6 +222,7 @@ class BoardNotifier extends Notifier<BoardState> {
     final profiles = await _db.profiles();
     final active = await _db.activeProfile();
     final sounds = await _db.sounds();
+    _applySort(sounds);
     final bindings = await _db.bindingsFor(active.id);
 
     final byId = {for (final s in sounds) s.id: s};
@@ -204,6 +240,22 @@ class BoardNotifier extends Notifier<BoardState> {
       pads: pads,
     );
     syncTray();
+  }
+
+  /// Favourites always float to the top; the chosen order applies within each
+  /// group, so starring something never hides it further down the list.
+  void _applySort(List<Sound> sounds) {
+    int cmp(Sound a, Sound b) => switch (state.sort) {
+          LibrarySort.name =>
+            a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          LibrarySort.recent => b.id.compareTo(a.id),
+          LibrarySort.duration => a.durationMs.compareTo(b.durationMs),
+          LibrarySort.format => a.format.compareTo(b.format),
+        };
+    sounds.sort((a, b) {
+      if (a.favourite != b.favourite) return a.favourite ? -1 : 1;
+      return cmp(a, b);
+    });
   }
 
   Future<void> setMasterVolume(double v) async {
@@ -242,3 +294,7 @@ final boardProvider =
 /// starting does not rebuild the whole page.
 final padActivityProvider = StreamProvider<PadActivity>(
     (ref) => BindingService.instance.activity);
+
+/// Theme choice, watched by the root widget.
+final themeModeProvider =
+    Provider<ThemeMode>((ref) => ref.watch(boardProvider).themeMode);
