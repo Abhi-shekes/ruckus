@@ -174,12 +174,17 @@ class _RowState extends State<_Row> {
   @override
   Widget build(BuildContext context) {
     final s = widget.sound;
-    return Draggable<Sound>(
+    return Semantics(
+      label: '${s.name}, ${s.format}, ${s.durationLabel}'
+          '${s.favourite ? ", starred" : ""}'
+          '${widget.boundTo != null ? ", bound to ${widget.boundTo}" : ""}',
+      child: Draggable<Sound>(
       data: s,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: _DragChip(sound: s),
       childWhenDragging: Opacity(opacity: 0.35, child: _body(context, s)),
       child: _body(context, s),
+      ),
     );
   }
 

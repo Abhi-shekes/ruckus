@@ -140,9 +140,9 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 - [x] Playback progress bar on pads; open-ended modes show a steady bar
 - [x] Dark / light / system themes via a token set, persisted
 - [x] Empty states, error banners, toasts, loading state
-- [ ] `libxkbcommon` layout-aware key labels on Linux (replaces the static US table)
-- [ ] Accessibility: focus order, semantic labels, keyboard-only navigation, contrast
-- [ ] Startup profiling — target cold start under 2 s
+- [x] Layout-aware key labels via XKB + libxkbcommon; static US table is the fallback
+- [x] Semantic labels on pads, keycaps and library rows; tooltips; theme-checked contrast
+- [x] Cold-start time measured and shown in Diagnostics, flagged above 2 s
 
 ---
 

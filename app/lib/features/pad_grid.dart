@@ -142,7 +142,15 @@ class _PadState extends State<_Pad> with SingleTickerProviderStateMixin {
             ? context.c.accent
             : (_hovering ? context.c.ruleStrong : context.c.rule);
 
-    return MouseRegion(
+    return Semantics(
+      button: true,
+      enabled: !missing,
+      label: '${pad.sound.name}, key $_keyLabel, '
+          '${pad.binding.mode.label}'
+          '${missing ? ", file missing" : ""}'
+          '${playing ? ", playing" : ""}',
+      onTap: missing ? null : widget.onTrigger,
+      child: MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
       child: GestureDetector(
@@ -216,6 +224,7 @@ class _PadState extends State<_Pad> with SingleTickerProviderStateMixin {
             ],
           ),
         ),
+      ),
       ),
     );
   }

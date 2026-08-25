@@ -165,6 +165,9 @@ class _DiagnosticsDialogState extends State<_DiagnosticsDialog> {
     final k = GlobalKeyboard.instance;
     final l = b.latency;
 
+    final boot = ProviderScope.containerOf(context, listen: false)
+        .read(boardProvider.notifier)
+        .bootMillis;
     final total = l.p95 + a.bufferLatencyMs;
     final pass = l.count > 0 && total < 25.0;
 
@@ -229,6 +232,13 @@ class _DiagnosticsDialogState extends State<_DiagnosticsDialog> {
             _Line('Voices live', '${a.voiceCount} / ${b.maxVoices} max'),
             const _Line('Sample rate', '$kSampleRate Hz'),
             _Line('Buffer', '$kBufferSizeFrames frames'),
+            _Line(
+                'Keyboard layout',
+                KeyLayout.name.isEmpty
+                    ? 'US QWERTY (assumed)'
+                    : KeyLayout.name),
+            _Line('Cold start', '${boot}ms',
+                color: boot > 2000 ? context.c.warn : null),
           ],
         ),
       ),

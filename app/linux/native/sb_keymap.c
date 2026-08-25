@@ -57,6 +57,14 @@ int32_t sb_evdev_to_hid(uint16_t evdev_code) {
   return usage ? (int32_t)(HID_PAGE | usage) : 0;
 }
 
+int32_t sb_hid_to_evdev(uint16_t hid_usage) {
+  const uint16_t usage = hid_usage & 0xFFFF;
+  for (int code = 0; code < 256; code++) {
+    if (kEvdevToHid[code] == usage) return code;
+  }
+  return 0;
+}
+
 int32_t sb_mod_bit_for_hid(int32_t hid_usage) {
   switch (hid_usage & 0xFFFF) {
     case 0xE0: case 0xE4: return SB_MOD_CTRL;

@@ -100,6 +100,8 @@ class BoardNotifier extends Notifier<BoardState> {
   BoardState build() => const BoardState();
 
   Future<void> boot() async {
+    final bootStart = DateTime.now();
+    KeyLayout.load();
     await _db.init();
 
     String? audioError;
@@ -159,7 +161,12 @@ class BoardNotifier extends Notifier<BoardState> {
 
     await refresh();
     syncTray();
+
+    bootMillis = DateTime.now().difference(bootStart).inMilliseconds;
   }
+
+  /// Cold-start cost, surfaced in Diagnostics so regressions are visible.
+  int bootMillis = 0;
 
   /// Pushes current state into the tray menu. Cheap; call after any change.
   void syncTray() {

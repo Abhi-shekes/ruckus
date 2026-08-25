@@ -7,4 +7,7 @@
 int32_t sb_evdev_to_hid(uint16_t evdev_code);
 int32_t sb_mod_bit_for_hid(int32_t hid_usage);
 
+// Reverse of sb_evdev_to_hid; 0 when the usage is not on the table.
+int32_t sb_hid_to_evdev(uint16_t hid_usage);
+
 #endif  // SB_INTERNAL_H

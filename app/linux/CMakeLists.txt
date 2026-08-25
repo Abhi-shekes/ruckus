@@ -56,14 +56,15 @@ pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 
 # === Global keyboard backend (C) ===
 enable_language(C)
-pkg_check_modules(SBX11 REQUIRED IMPORTED_TARGET x11 xtst)
+pkg_check_modules(SBX11 REQUIRED IMPORTED_TARGET x11 xtst xkbcommon)
 
 add_library(ruckus_keys SHARED
   "native/sb_keymap.c"
   "native/sb_x11.c"
   "native/sb_evdev.c"
   "native/sb_keyboard.c"
-  "native/sb_tray.c")
+  "native/sb_tray.c"
+  "native/sb_layout.c")
 target_compile_options(ruckus_keys PRIVATE -Wall -Wextra -O2 -fPIC)
 target_include_directories(ruckus_keys PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(ruckus_keys PRIVATE PkgConfig::SBX11 PkgConfig::GTK pthread)

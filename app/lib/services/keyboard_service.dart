@@ -6,8 +6,11 @@
 // hidden entirely (PLAN.md D4).
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
 
 // ---------------------------------------------------------------- constants
 
@@ -132,8 +135,81 @@ bool isModifier(int hidUsage) {
   return u >= 0xE0 && u <= 0xE7;
 }
 
+/// Glyphs the active keyboard layout produces, filled in at startup by
+/// [KeyLayout.load]. Empty until then, and only ever holds printable keys —
+/// named keys like Enter keep their table names.
+final Map<int, String> _layoutLabels = {};
+
+/// Reads the active X11 layout so labels match the user's own keyboard rather
+/// than assuming US QWERTY.
+class KeyLayout {
+  KeyLayout._();
+
+  static String name = '';
+  static bool loaded = false;
+
+  /// Best-effort: on any failure the static table below is used unchanged.
+  static void load() {
+    if (loaded) return;
+    loaded = true;
+    final path = libraryPath();
+    if (path == null) return;
+    try {
+      final lib = DynamicLibrary.open(path);
+      final init = lib.lookupFunction<Int32 Function(), int Function()>(
+          'sb_layout_init');
+      if (init() != 0) return;
+
+      final label = lib.lookupFunction<
+          Int32 Function(Int32, Pointer<Uint8>, Int32),
+          int Function(int, Pointer<Uint8>, int)>('sb_layout_label');
+      final layoutName =
+          lib.lookupFunction<Pointer<Uint8> Function(), Pointer<Uint8> Function()>(
+              'sb_layout_name');
+
+      final buf = calloc<Uint8>(16);
+      try {
+        // Only the keys whose legend actually varies by layout.
+        for (final usage in _layoutSensitive) {
+          final hid = 0x00070000 | usage;
+          if (label(hid, buf, 16) != 0) continue;
+          final bytes = <int>[];
+          for (var i = 0; i < 16 && buf[i] != 0; i++) {
+            bytes.add(buf[i]);
+          }
+          if (bytes.isEmpty) continue;
+          final glyph = utf8.decode(bytes, allowMalformed: true).toUpperCase();
+          if (glyph.isNotEmpty) _layoutLabels[hid] = glyph;
+        }
+        final np = layoutName();
+        if (np.address != 0) {
+          final nb = <int>[];
+          for (var i = 0; i < 128 && np[i] != 0; i++) {
+            nb.add(np[i]);
+          }
+          name = utf8.decode(nb, allowMalformed: true);
+        }
+      } finally {
+        calloc.free(buf);
+      }
+    } catch (_) {
+      // Layout detection is a nicety; never let it break startup.
+    }
+  }
+
+  /// Letters, digits and punctuation — the keys a layout actually relabels.
+  static final List<int> _layoutSensitive = [
+    for (var u = 0x04; u <= 0x1D; u++) u, // A-Z positions
+    for (var u = 0x1E; u <= 0x27; u++) u, // 1-0
+    0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+  ];
+}
+
 /// Human-readable name for a HID usage id.
 String hidLabel(int hidUsage) {
+  final fromLayout = _layoutLabels[hidUsage];
+  if (fromLayout != null) return fromLayout;
+
   final u = hidUsage & 0xFFFF;
   if (u >= 0x04 && u <= 0x1D) return String.fromCharCode(0x41 + (u - 0x04));
   if (u >= 0x1E && u <= 0x26) return String.fromCharCode(0x31 + (u - 0x1E));

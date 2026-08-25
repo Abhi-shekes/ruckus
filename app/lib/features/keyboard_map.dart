@@ -237,7 +237,14 @@ class _KeyCapState extends State<_KeyCap> {
       onAcceptWithDetails: (d) => widget.onDrop(d.data),
       builder: (context, candidate, _) {
         final hot = candidate.isNotEmpty;
-        return MouseRegion(
+        return Semantics(
+          button: true,
+          label: bound
+              ? '${widget.label} key, bound to ${widget.pad!.sound.name}. '
+                  'Activate to change.'
+              : '${widget.label} key, unbound. Activate to assign a sound.',
+          onTap: widget.onTap,
+          child: MouseRegion(
           onEnter: (_) => setState(() => _hover = true),
           onExit: (_) => setState(() => _hover = false),
           cursor: SystemMouseCursors.click,
@@ -294,6 +301,7 @@ class _KeyCapState extends State<_KeyCap> {
                 ),
               ),
             ),
+          ),
           ),
         );
       },
