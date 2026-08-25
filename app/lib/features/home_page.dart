@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../main.dart';
@@ -17,6 +18,7 @@ import '../services/tray_service.dart';
 import '../state.dart';
 import 'assign_dialog.dart';
 import 'diagnostics_panel.dart';
+import 'keyboard_map.dart';
 import 'pad_grid.dart';
 import 'sound_library.dart';
 
@@ -32,6 +34,8 @@ class _HomePageState extends ConsumerState<HomePage>
   bool _booted = false;
   String? _bootError;
   StreamSubscription<int>? _trayClicks;
+  bool _showKeyboard = false;
+  bool _dropHover = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -227,6 +231,89 @@ class _HomePageState extends ConsumerState<HomePage>
     if (name == null || name.isEmpty) return;
     final id = await DatabaseService.instance.createProfile(name);
     await ref.read(boardProvider.notifier).switchProfile(id);
+  }
+
+  /// A key was clicked on the map: pick the sound, then bind it to that key.
+  Future<void> _assignToKey(int hid, int modifiers) async {
+    final board = ref.read(boardProvider);
+    if (board.sounds.isEmpty) {
+      _toast('Add a sound first.');
+      return;
+    }
+    final sound = await showDialog<Sound>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: context.c.panel,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: context.c.rule),
+            borderRadius: BorderRadius.zero),
+        title: Text('Bind ${hidLabel(hid)} to…',
+            style: TextStyle(fontSize: 15)),
+        children: [
+          SizedBox(
+            width: 360,
+            height: 340,
+            child: ListView(children: [
+              for (final s in board.sounds)
+                ListTile(
+                  dense: true,
+                  leading: Icon(Icons.graphic_eq,
+                      size: 15, color: context.c.muted),
+                  title: Text(s.name, style: TextStyle(fontSize: 13)),
+                  subtitle: Text('${s.format} · ${s.durationLabel}',
+                      style: TextStyle(fontSize: 10.5)),
+                  onTap: () => Navigator.pop(ctx, s),
+                ),
+            ]),
+          ),
+        ],
+      ),
+    );
+    if (sound == null) return;
+    await _bindDirect(sound, hid, modifiers);
+  }
+
+  /// Create a binding without the capture dialog — used by the map and by
+  /// drag-and-drop, where the key is already known.
+  Future<void> _bindDirect(Sound sound, int hid, int modifiers) async {
+    final profile = ref.read(boardProvider).active;
+    if (profile == null) return;
+    final db = DatabaseService.instance;
+
+    final binding = KeyBinding(
+      id: 0,
+      profileId: profile.id,
+      physicalKeyId: hid,
+      modifiers: modifiers,
+      soundId: sound.id,
+    );
+    try {
+      await db.insertBinding(binding);
+    } on DuplicateBindingException {
+      final clash = await db.bindingAt(profile.id, hid, modifiers);
+      final clashName = ref
+          .read(boardProvider)
+          .sounds
+          .where((s) => s.id == clash?.soundId)
+          .map((s) => s.name)
+          .firstOrNull;
+      if (!mounted) return;
+      final replace = await _confirm(
+          'Key already assigned',
+          '${hidLabel(hid)} is already assigned to '
+              '${clashName ?? "another sound"}.\n\nReplace it?',
+          'Replace');
+      if (replace != true) return;
+      await db.insertBinding(binding, replace: true);
+    }
+    await ref.read(boardProvider.notifier).refresh();
+    if (mounted) _toast('${hidLabel(hid)} → ${sound.name}');
+  }
+
+  Future<void> _importDroppedFiles(List<String> paths) async {
+    final result = await LibraryService.instance.importPaths(paths);
+    await ref.read(boardProvider.notifier).refresh();
+    if (mounted) _toast(result.summary);
   }
 
   Future<void> _renameProfile(Profile p) async {
@@ -486,6 +573,8 @@ class _HomePageState extends ConsumerState<HomePage>
             onGlobalModeChanged: (v) =>
                 ref.read(boardProvider.notifier).setGlobalMode(v),
             onSettings: () => showSettings(context),
+            showKeyboard: _showKeyboard,
+            onViewChanged: (v) => setState(() => _showKeyboard = v),
           ),
           if (board.keyboardError != null)
             _Banner(
@@ -521,15 +610,65 @@ class _HomePageState extends ConsumerState<HomePage>
                 ),
                 VerticalDivider(width: 1, color: context.c.rule),
                 Expanded(
-                  child: PadGrid(
-                    pads: board.pads,
-                    onTrigger: (p) => BindingService.instance.trigger(p.binding),
-                    onEdit: (p) => _assign(p.sound, existing: p.binding),
-                    onRemove: (p) async {
-                      await DatabaseService.instance.deleteBinding(p.binding.id);
-                      await ref.read(boardProvider.notifier).refresh();
+                  child: DropTarget(
+                    onDragEntered: (_) => setState(() => _dropHover = true),
+                    onDragExited: (_) => setState(() => _dropHover = false),
+                    onDragDone: (detail) {
+                      setState(() => _dropHover = false);
+                      _importDroppedFiles(
+                          detail.files.map((f) => f.path).toList());
                     },
-                    onImport: _import,
+                    child: Stack(children: [
+                      Positioned.fill(
+                        child: _showKeyboard
+                            ? KeyboardMap(
+                                pads: board.pads,
+                                onAssignKey: _assignToKey,
+                                onOpenBinding: (p) =>
+                                    _assign(p.sound, existing: p.binding),
+                                onDropSound: (s, hid, mods) =>
+                                    _bindDirect(s, hid, mods),
+                              )
+                            : PadGrid(
+                                pads: board.pads,
+                                onTrigger: (p) =>
+                                    BindingService.instance.trigger(p.binding),
+                                onEdit: (p) =>
+                                    _assign(p.sound, existing: p.binding),
+                                onRemove: (p) async {
+                                  await DatabaseService.instance
+                                      .deleteBinding(p.binding.id);
+                                  await ref
+                                      .read(boardProvider.notifier)
+                                      .refresh();
+                                },
+                                onImport: _import,
+                              ),
+                      ),
+                      if (_dropHover)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Container(
+                              color: context.c.accent.withValues(alpha: 0.14),
+                              child: Center(
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: context.c.panel,
+                                    border:
+                                        Border.all(color: context.c.accent, width: 1.5),
+                                  ),
+                                  child: Text('Drop audio files to add them',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          color: context.c.accent)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ]),
                   ),
                 ),
               ],
@@ -642,6 +781,8 @@ class _Toolbar extends StatelessWidget {
     required this.onDiagnostics,
     required this.onGlobalModeChanged,
     required this.onSettings,
+    required this.showKeyboard,
+    required this.onViewChanged,
   });
 
   final BoardState board;
@@ -652,6 +793,8 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onDiagnostics;
   final ValueChanged<bool> onGlobalModeChanged;
   final VoidCallback onSettings;
+  final bool showKeyboard;
+  final ValueChanged<bool> onViewChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -679,7 +822,9 @@ class _Toolbar extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.zero)),
         ),
-        SizedBox(width: 22),
+        SizedBox(width: 16),
+        _ViewToggle(showKeyboard: showKeyboard, onChanged: onViewChanged),
+        SizedBox(width: 18),
         Text('MASTER',
             style: TextStyle(
                 fontFamily: 'monospace',
@@ -730,6 +875,41 @@ class _Toolbar extends StatelessWidget {
           iconSize: 18,
           icon: Icon(Icons.tune, color: context.c.muted),
         ),
+      ]),
+    );
+  }
+}
+
+/// Pads, or the whole keyboard.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.showKeyboard, required this.onChanged});
+  final bool showKeyboard;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget seg(IconData icon, String tip, bool isKeyboard) {
+      final on = showKeyboard == isKeyboard;
+      return Tooltip(
+        message: tip,
+        child: InkWell(
+          onTap: on ? null : () => onChanged(isKeyboard),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            color: on ? context.c.accent.withValues(alpha: 0.18) : null,
+            child: Icon(icon,
+                size: 16, color: on ? context.c.accent : context.c.muted),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: context.c.rule)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg(Icons.grid_view, 'Pads', false),
+        Container(width: 1, height: 22, color: context.c.rule),
+        seg(Icons.keyboard, 'Keyboard map', true),
       ]),
     );
   }

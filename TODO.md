@@ -131,9 +131,9 @@ Verified by `cd app && ./run.sh --smoketest ../spike/assets/sounds` — 18/18 pa
 
 ## Phase 5 — UI/UX polish  (~2 weeks)
 
-- [ ] Full visual keyboard (PLAN §9 layout) — mapped vs unmapped clearly distinct
-- [ ] Click a key on the visual keyboard to assign; drag a sound onto a key
-- [ ] Drag-and-drop audio files from the desktop into the app
+- [x] Full visual keyboard — bound keys picked out, free keys plain, modifier bindings counted
+- [x] Click a free key to assign; drag a sound from the library onto any key
+- [x] Drag-and-drop audio files from the desktop into the board
 - [x] Search in the library
 - [x] Favourites (star, floats to top) and sort by name / recent / duration / format
 - [x] Live playback indicator on pads (border + tint while voices are alive)

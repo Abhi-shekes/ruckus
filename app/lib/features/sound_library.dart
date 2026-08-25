@@ -174,6 +174,16 @@ class _RowState extends State<_Row> {
   @override
   Widget build(BuildContext context) {
     final s = widget.sound;
+    return Draggable<Sound>(
+      data: s,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: _DragChip(sound: s),
+      childWhenDragging: Opacity(opacity: 0.35, child: _body(context, s)),
+      child: _body(context, s),
+    );
+  }
+
+  Widget _body(BuildContext context, Sound s) {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -268,6 +278,30 @@ class _RowState extends State<_Row> {
       ),
     );
   }
+}
+
+/// What follows the cursor while dragging a sound onto a key.
+class _DragChip extends StatelessWidget {
+  const _DragChip({required this.sound});
+  final Sound sound;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: context.c.accentSoft,
+            border: Border.all(color: context.c.accent),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.graphic_eq, size: 13, color: context.c.accent),
+            SizedBox(width: 6),
+            Text(sound.name,
+                style: TextStyle(fontSize: 12, color: context.c.accent)),
+          ]),
+        ),
+      );
 }
 
 class _EmptyLibrary extends StatelessWidget {
