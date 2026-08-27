@@ -5,6 +5,9 @@
 #include <gdk/gdkx.h>
 #endif
 
+#include <limits.h>
+#include <unistd.h>
+
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
@@ -13,6 +16,25 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// Sets the taskbar/window-switcher icon from icon.png, installed beside the
+// binary by CMakeLists.txt. Missing icon is not fatal — just leave the
+// window with whatever default the desktop environment supplies.
+static void set_window_icon(GtkWindow* window) {
+  char exe_path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  if (len == -1) return;
+  exe_path[len] = '\0';
+
+  g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+  g_autofree gchar* icon_path = g_build_filename(exe_dir, "icon.png", nullptr);
+
+  g_autoptr(GError) error = nullptr;
+  if (!gtk_window_set_icon_from_file(window, icon_path, &error)) {
+    g_warning("Could not load window icon from %s: %s", icon_path,
+              error->message);
+  }
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView *view)
@@ -54,6 +76,7 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  set_window_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(project, self->dart_entrypoint_arguments);
