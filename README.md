@@ -10,6 +10,8 @@ Import sound  →  Assign key  →  Press key anywhere  →  Sound plays
 Built with Flutter. Fully offline: no account, no telemetry, no network code at
 all.
 
+![Ruckus pads view, showing the sound library and bound pads](docs/screenshots/pads-view.png)
+
 ![Ruckus keyboard map, showing bound and free keys](docs/screenshots/keyboard-map.png)
 
 ---
